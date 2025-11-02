@@ -1,0 +1,15 @@
+%% Diagrama de secuencia del flujo de análisis (Mermaid)
+sequenceDiagram
+  participant App
+  participant Dashboard
+  participant RiskEngine
+  participant VisualAlerts
+  participant AIAssistant
+  App->>Dashboard: Cargar LapData (mock o archivo)
+  Dashboard->>RiskEngine: computeSectorRisks(lapData, track)
+  RiskEngine-->>Dashboard: SectorRisk[]
+  Dashboard->>VisualAlerts: computeVisualRiskAnalysis(lapData, track)
+  VisualAlerts-->>Dashboard: RiskAnalysis
+  Dashboard->>AIAssistant: onClick Analyze
+  AIAssistant->>RiskEngine: computeRiskAnalysis(lapData, track)
+  RiskEngine-->>AIAssistant: AIAnalysis

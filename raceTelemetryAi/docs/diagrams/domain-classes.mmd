@@ -1,0 +1,33 @@
+%% Diagrama de clases de dominio (Mermaid)
+classDiagram
+  class TelemetryDataPoint {
+    +number Laptrigger_lapdist_dls
+    +number Speed
+    +number rpm
+    +number Gear
+    +number at
+    +number pbrake_f
+    +number SteeringAngle
+  }
+  class LapData {
+    +number lapNumber
+    +string lapTime
+    +TelemetryDataPoint[] telemetry
+  }
+  class Track {
+    +string id
+    +string name
+    +string mapUrl
+    +number lapDistance
+  }
+  class AIAnalysis {
+    +string overallSummary
+    +string[] areasForImprovement
+    +Recommendation[] detailedRecommendations
+  }
+  class Recommendation {
+    +string location
+    +string advice
+  }
+
+  LapData --> "*" TelemetryDataPoint

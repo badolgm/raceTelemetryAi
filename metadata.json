@@ -1,0 +1,5 @@
+{
+  "name": "Race Telemetry AI Coach",
+  "description": "An advanced race telemetry analysis dashboard that leverages the Gemini API to provide AI-powered coaching and insights for drivers participating in the Hackathon 2025.",
+  "requestFramePermissions": []
+}

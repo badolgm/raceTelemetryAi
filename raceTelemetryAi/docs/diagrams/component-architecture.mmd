@@ -1,0 +1,16 @@
+%% Diagrama de componentes (Mermaid)
+flowchart LR
+  A[App.tsx] --> B[Dashboard]
+  B --> C[CircuitViewer]
+  B --> D[TelemetryGauges]
+  B --> E[LapDataChart]
+  B --> F[RiskMap]
+  B --> G[AIAssistant]
+  B --> H[VisualAlerts]
+  A --> I[Sidebar]
+  A --> J[dataManager]
+  G --> K[riskEngine]
+  F --> K
+  H --> K
+  C --> L[TrackMap PDFs]
+  J --> M[DataFiles CSV/ZIP]

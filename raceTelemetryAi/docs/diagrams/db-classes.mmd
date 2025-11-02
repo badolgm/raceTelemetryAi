@@ -1,0 +1,46 @@
+%% Diagrama de clases de BD lógica (Mermaid)
+classDiagram
+  class TrackRef {
+    +id: string
+    +name: string
+    +lapDistance: number
+  }
+  class Session {
+    +id: string
+    +series: string
+    +eventDate: Date
+    +trackId: string
+    +driver: string
+    +car: string
+  }
+  class Lap {
+    +id: string
+    +sessionId: string
+    +lapNumber: number
+    +lapTimeMs: number
+  }
+  class LapTelemetry {
+    +lapId: string
+    +sampleIndex: number
+    +distance_m: number
+    +speed_kmh: number
+    +rpm: number
+    +gear: number
+    +throttle_pct: number
+    +brake_bar: number
+    +steer_deg: number
+  }
+  class SectorRisk {
+    +lapId: string
+    +sectorNo: number
+    +start_m: number
+    +end_m: number
+    +tireRisk: float
+    +engineRisk: float
+    +brakeRisk: float
+    +overall: float
+  }
+  Session --> TrackRef
+  Lap --> Session
+  LapTelemetry --> Lap
+  SectorRisk --> Lap
