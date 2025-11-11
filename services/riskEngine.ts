@@ -1,4 +1,5 @@
 import { LapData, Track, TelemetryDataPoint, AIAnalysis } from '../types';
+import { getCalibrationSync } from './calibration';
 
 export interface SectorRisk {
   sector: number;
@@ -116,10 +117,11 @@ export interface RiskAnalysis {
     fuel: { level: number };
   };
   pitWindow?: {
-    urgency: 'low' | 'medium' | 'high';
+    urgency: 'low' | 'medium' | 'high' | 'critical';
     lapsRemaining: number;
     reason: string;
     timeToDecision: number; // seconds
+    recommended: boolean;
   };
 }
 
@@ -135,16 +137,20 @@ export const computeVisualRiskAnalysis = (lapData: LapData, track: Track): RiskA
   const speed = last?.Speed ?? 0;
   const dist = last?.Laptrigger_lapdist_dls ?? 0;
 
+  const cal = getCalibrationSync(track.id);
   const engineTemp = Math.min(115, 70 + (rpm / 8500) * 45);
-  const engineRisk = engineTemp > 105 ? 0.9 : engineTemp > 95 ? 0.7 : overall;
+  const engineRisk = engineTemp > (cal.engineTempCritical ?? 110) ? 1.0 : engineTemp > (cal.engineTempHigh ?? 105) ? 0.9 : engineTemp > 95 ? 0.7 : overall;
   const tireWear = Math.min(1, (steer / 60) * 0.6 + (speed / 300) * 0.4);
   const brakeWear = Math.min(1, (brake / 80));
   const fuelLevel = Math.max(0, 1 - dist / Math.max(1, track.lapDistance));
 
-  let urgency: 'low' | 'medium' | 'high' = 'low';
+  let urgency: 'low' | 'medium' | 'high' | 'critical' = 'low';
   let reason = '';
-  if (fuelLevel < 0.12) { urgency = 'high'; reason = 'Combustible bajo'; }
-  else if (tireWear > 0.75) { urgency = 'medium'; reason = 'Desgaste de llantas'; }
+  if (fuelLevel < (cal.fuelCriticalPct ?? 0.08)) { urgency = 'critical'; reason = 'Combustible crítico'; }
+  else if (fuelLevel < (cal.fuelHighPct ?? 0.12)) { urgency = 'high'; reason = 'Combustible bajo'; }
+  else if (tireWear > (cal.tireWearHigh ?? 0.9)) { urgency = 'high'; reason = 'Desgaste de llantas'; }
+  else if (tireWear > (cal.tireWearMedium ?? 0.75)) { urgency = 'medium'; reason = 'Desgaste de llantas'; }
+  else if (engineRisk > 0.9) { urgency = 'high'; reason = 'Temperatura del motor'; }
   else if (engineRisk > 0.8) { urgency = 'medium'; reason = 'Temperatura del motor'; }
 
   const lapsRemaining = Math.max(0, Math.round((fuelLevel * track.lapDistance) / Math.max(1, track.lapDistance)));
@@ -162,6 +168,7 @@ export const computeVisualRiskAnalysis = (lapData: LapData, track: Track): RiskA
       lapsRemaining,
       reason: reason || 'Estrategia',
       timeToDecision: 30,
+      recommended: true,
     },
   };
 };

@@ -4,6 +4,7 @@ import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import { Track, LapData, TelemetryDataPoint } from './types';
 import { TRACKS } from './constants';
+import { SimulatedAdapter, WebSocketAdapter, ConnectionStatus } from './services/telemetryAdapter';
 
 // Helper to generate mock telemetry data for the hackathon
 const generateMockLapData = (track: Track): LapData => {
@@ -46,6 +47,10 @@ const App: React.FC = () => {
   const [selectedTrack, setSelectedTrack] = useState<Track>(TRACKS[0]);
   const [lapData, setLapData] = useState<LapData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentTelemetry, setCurrentTelemetry] = useState<TelemetryDataPoint | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
+  const [adapter, setAdapter] = useState<SimulatedAdapter | null>(null);
+  const [dataSource, setDataSource] = useState<'demo' | 'ws'>('demo');
 
   const loadTelemetryData = useCallback((track: Track) => {
     setIsLoading(true);
@@ -61,16 +66,41 @@ const App: React.FC = () => {
     loadTelemetryData(selectedTrack);
   }, [selectedTrack, loadTelemetryData]);
 
+  // Iniciar adapter simulado al cargar lapData
+  useEffect(() => {
+    if (!lapData) return;
+    // Limpiar adapter previo
+    adapter?.stop();
+
+    if (dataSource === 'demo') {
+      const sim = new SimulatedAdapter(selectedTrack, lapData, 60);
+      sim.onStatus(setConnectionStatus);
+      sim.onFrame((frame) => setCurrentTelemetry(frame));
+      sim.onLapData?.((lap) => setLapData(lap));
+      sim.start();
+      setAdapter(sim as any);
+      return () => sim.stop();
+    } else {
+      const ws = new WebSocketAdapter(undefined, lapData); // endpoint mock: undefined usa modo simulado
+      ws.onStatus(setConnectionStatus);
+      ws.onFrame((frame) => setCurrentTelemetry(frame));
+      ws.onLapData?.((lap) => setLapData(lap));
+      ws.start();
+      setAdapter(ws as any);
+      return () => ws.stop();
+    }
+  }, [lapData, selectedTrack, dataSource]);
+
   const handleSelectTrack = (track: Track) => {
     setSelectedTrack(track);
   };
 
   return (
     <div className="h-screen flex flex-col bg-gray-900 text-gray-100 font-sans">
-      <Header />
+      <Header connectionStatus={connectionStatus} dataSource={dataSource} onChangeDataSource={setDataSource} />
       <div className="flex flex-col md:flex-row flex-grow overflow-hidden">
         <Sidebar selectedTrack={selectedTrack} onSelectTrack={handleSelectTrack} />
-        <Dashboard track={selectedTrack} lapData={lapData} isLoading={isLoading} />
+        <Dashboard track={selectedTrack} lapData={lapData} currentTelemetry={currentTelemetry} isLoading={isLoading} />
       </div>
     </div>
   );

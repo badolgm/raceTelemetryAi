@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { LapData, Track, TelemetryDataPoint } from '../types';
 import Card from './ui/Card';
 import TelemetryGauges from './TelemetryGauges';
@@ -9,36 +9,76 @@ import RiskMap from './RiskMap';
 import CircuitViewer from './CircuitViewer';
 import { computeSectorRisks, computeVisualRiskAnalysis } from '../services/riskEngine';
 import { VisualAlerts } from './VisualAlerts';
+import { audioAlerts } from '../services/audioAlerts';
+import { loadCalibration } from '../services/calibration';
+import ErrorBoundary from './ui/ErrorBoundary';
 
 interface DashboardProps {
     track: Track;
     lapData: LapData | null;
+    currentTelemetry: TelemetryDataPoint | null;
     isLoading: boolean;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ track, lapData, isLoading }) => {
-    const [currentTelemetry, setCurrentTelemetry] = useState<TelemetryDataPoint | null>(null);
-
+const Dashboard: React.FC<DashboardProps> = ({ track, lapData, currentTelemetry, isLoading }) => {
+    // Cargar calibración por pista en segundo plano al cambiar de circuito
     useEffect(() => {
-        let animationFrameId: number;
-        if (lapData && lapData.telemetry.length > 0) {
-            let index = 0;
-            const animate = () => {
-                setCurrentTelemetry(lapData.telemetry[index]);
-                index = (index + 1) % lapData.telemetry.length;
-                animationFrameId = requestAnimationFrame(animate);
-            };
-            animate();
-        } else {
-            setCurrentTelemetry(null);
+        if (track?.id) {
+            loadCalibration(track.id).catch(() => {});
+        }
+    }, [track?.id]);
+
+    // Precomputar riesgos para que los hooks no cambien de orden entre renders
+    const sectorRisks = lapData ? computeSectorRisks(lapData, track) : [];
+    const riskAnalysis = lapData ? computeVisualRiskAnalysis({
+        ...lapData,
+        telemetry: currentTelemetry ? [...lapData.telemetry.slice(0, -1), currentTelemetry] : lapData.telemetry
+    }, track) : null;
+
+    // Emitir alertas de voz basadas en el análisis de riesgo (hook siempre presente)
+    useEffect(() => {
+        if (!riskAnalysis || !currentTelemetry) return;
+
+        // Pit window
+        if (riskAnalysis.pitWindow?.recommended) {
+            const distanceToPit = Math.max(0, track.lapDistance - (currentTelemetry.Laptrigger_lapdist_dls || 0));
+            const speed = currentTelemetry.Speed || 0;
+            const urgency = riskAnalysis.pitWindow.urgency === 'critical' ? 'critical'
+                : riskAnalysis.pitWindow.urgency === 'high' ? 'now'
+                : 'warning';
+            const pitAlert = audioAlerts.createPitAlert(distanceToPit, speed, riskAnalysis.pitWindow.reason, urgency);
+            audioAlerts.addAlert(pitAlert);
         }
 
-        return () => {
-            if (animationFrameId) {
-                cancelAnimationFrame(animationFrameId);
-            }
-        };
-    }, [lapData]);
+        // Componentes
+        const engine = riskAnalysis.componentStatus.engine;
+        if (engine.risk > 85) {
+            audioAlerts.addAlert(
+                audioAlerts.createComponentAlert('engine', engine.risk, riskAnalysis.pitWindow?.lapsRemaining ?? 0, engine.temp)
+            );
+        }
+
+        const tires = riskAnalysis.componentStatus.tires;
+        if (tires.wear > 80) {
+            audioAlerts.addAlert(
+                audioAlerts.createComponentAlert('tires', tires.wear, riskAnalysis.pitWindow?.lapsRemaining ?? 0, tires.wear)
+            );
+        }
+
+        const fuel = riskAnalysis.componentStatus.fuel;
+        if (fuel.level < 12) {
+            audioAlerts.addAlert(
+                audioAlerts.createComponentAlert('fuel', 100 - fuel.level, riskAnalysis.pitWindow?.lapsRemaining ?? 0, fuel.level)
+            );
+        }
+
+        const brakes = riskAnalysis.componentStatus.brakes;
+        if (brakes.wear > 80) {
+            audioAlerts.addAlert(
+                audioAlerts.createComponentAlert('brakes', brakes.wear, riskAnalysis.pitWindow?.lapsRemaining ?? 0, brakes.wear)
+            );
+        }
+    }, [riskAnalysis, currentTelemetry, track.lapDistance]);
 
     if (isLoading) {
         return (
@@ -58,9 +98,6 @@ const Dashboard: React.FC<DashboardProps> = ({ track, lapData, isLoading }) => {
             </div>
         )
     }
-
-    const sectorRisks = lapData ? computeSectorRisks(lapData, track) : [];
-    const riskAnalysis = lapData ? computeVisualRiskAnalysis(lapData, track) : null;
 
     return (
         <main className="flex-grow p-4 md:p-6 overflow-y-auto">
@@ -86,12 +123,18 @@ const Dashboard: React.FC<DashboardProps> = ({ track, lapData, isLoading }) => {
 
                 {/* Right Column */}
                 <div className="lg:col-span-2 space-y-6">
-                    <RiskMap track={track} sectorRisks={sectorRisks} />
-                    <LapDataChart lapData={lapData} />
+                    <ErrorBoundary>
+                      <RiskMap track={track} sectorRisks={sectorRisks} />
+                    </ErrorBoundary>
+                    <ErrorBoundary>
+                      <LapDataChart lapData={lapData} />
+                    </ErrorBoundary>
                     <AIAssistant lapData={lapData} track={track} />
                 </div>
                 {/* Alertas visuales flotantes */}
-                <VisualAlerts riskAnalysis={riskAnalysis} />
+                <ErrorBoundary>
+                  <VisualAlerts riskAnalysis={riskAnalysis} />
+                </ErrorBoundary>
             </div>
         </main>
     );
