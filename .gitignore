@@ -13,3 +13,17 @@ raceTelemetryAi-src-backup-*.zip
 .DS_Store
 Thumbs.db
 *.tmp
+# Ignorar datasets locales y artefactos pesados
+DataFiles/
+DataFiles/**
+
+# Directorios de build y dependencias
+node_modules/
+dist/
+
+# Logs y temporales
+*.log
+*.bak
+*.cache
+.DS_Store
+Thumbs.db
