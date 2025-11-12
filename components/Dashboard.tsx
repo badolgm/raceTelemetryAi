@@ -7,6 +7,7 @@ import AIAssistant from './AIAssistant';
 import LoadingSpinner from './ui/LoadingSpinner';
 import RiskMap from './RiskMap';
 import CircuitViewer from './CircuitViewer';
+import { getTrackModelSync } from '../services/modelLoader';
 import { computeSectorRisks, computeVisualRiskAnalysis } from '../services/riskEngine';
 import { VisualAlerts } from './VisualAlerts';
 import { audioAlerts } from '../services/audioAlerts';
@@ -108,7 +109,7 @@ const Dashboard: React.FC<DashboardProps> = ({ track, lapData, currentTelemetry,
                         <h2 className="text-xl font-bold text-white mb-2">{track.name}</h2>
                         <CircuitViewer
                           track={track}
-                          progress={(currentTelemetry?.Laptrigger_lapdist_dls ?? 0) / Math.max(1, track.lapDistance)}
+                          progress={(currentTelemetry?.Laptrigger_lapdist_dls ?? 0) / Math.max(1, (getTrackModelSync(track.id).lapDistance_m ?? track.lapDistance))}
                         />
                     </Card>
                     <Card>

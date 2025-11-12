@@ -4,7 +4,7 @@ import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import { Track, LapData, TelemetryDataPoint } from './types';
 import { TRACKS } from './constants';
-import { SimulatedAdapter, WebSocketAdapter, ConnectionStatus } from './services/telemetryAdapter';
+import { SimulatedAdapter, WebSocketAdapter, ConnectionStatus, CsvFileAdapter, TelemetryAdapter } from './services/telemetryAdapter';
 import { loadTrackModel } from './services/modelLoader';
 import { loadCalibration } from './services/calibration';
 
@@ -51,8 +51,8 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [currentTelemetry, setCurrentTelemetry] = useState<TelemetryDataPoint | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
-  const [adapter, setAdapter] = useState<SimulatedAdapter | null>(null);
-  const [dataSource, setDataSource] = useState<'demo' | 'ws'>('demo');
+  const [adapter, setAdapter] = useState<TelemetryAdapter | null>(null);
+  const [dataSource, setDataSource] = useState<'demo' | 'ws' | 'csv'>('demo');
 
   const loadTelemetryData = useCallback((track: Track) => {
     setIsLoading(true);
@@ -71,30 +71,42 @@ const App: React.FC = () => {
     loadCalibration(selectedTrack.id).catch(() => {});
   }, [selectedTrack, loadTelemetryData]);
 
-  // Iniciar adapter simulado al cargar lapData
+  // Iniciar adapter según fuente seleccionada
   useEffect(() => {
-    if (!lapData) return;
-    // Limpiar adapter previo
+    // Detener adapter previo
     adapter?.stop();
 
     if (dataSource === 'demo') {
+      if (!lapData) return; // requiere mock ya generado
       const sim = new SimulatedAdapter(selectedTrack, lapData, 60);
       sim.onStatus(setConnectionStatus);
       sim.onFrame((frame) => setCurrentTelemetry(frame));
       sim.onLapData?.((lap) => setLapData(lap));
       sim.start();
-      setAdapter(sim as any);
-      return () => sim.stop();
+      setAdapter(sim);
+    } else if (dataSource === 'csv') {
+      const csv = new CsvFileAdapter({
+        csvUrl: '/DataFiles/barber/R1_barber_telemetry_data.csv',
+        mappingUrl: '/DataFiles/barber/mapping.json',
+        track: selectedTrack,
+        intervalMs: 60,
+      });
+      csv.onStatus(setConnectionStatus);
+      csv.onFrame((frame) => setCurrentTelemetry(frame));
+      csv.onLapData((lap) => setLapData(lap));
+      csv.start();
+      setAdapter(csv);
     } else {
-      const ws = new WebSocketAdapter(undefined, lapData); // endpoint mock: undefined usa modo simulado
+      const ws = new WebSocketAdapter(undefined, lapData || undefined); // endpoint mock: undefined usa modo simulado
       ws.onStatus(setConnectionStatus);
       ws.onFrame((frame) => setCurrentTelemetry(frame));
       ws.onLapData?.((lap) => setLapData(lap));
       ws.start();
-      setAdapter(ws as any);
-      return () => ws.stop();
+      setAdapter(ws);
     }
-  }, [lapData, selectedTrack, dataSource]);
+
+    return () => { adapter?.stop(); };
+  }, [dataSource, selectedTrack, lapData]);
 
   const handleSelectTrack = (track: Track) => {
     setSelectedTrack(track);

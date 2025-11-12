@@ -23,13 +23,14 @@ export const VisualAlerts: React.FC<VisualAlertsProps> = ({ riskAnalysis, classN
   const [activeAlerts, setActiveAlerts] = useState<FloatingAlert[]>([]);
   const [pulseAnimation, setPulseAnimation] = useState<string>('');
   const [isMobile, setIsMobile] = useState<boolean>(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
+  const [statusCollapsed, setStatusCollapsed] = useState<boolean>(false);
 
   useEffect(() => {
     if (!riskAnalysis) return;
 
     const newAlerts: FloatingAlert[] = [];
 
-    // Alertas críticas de componentes
+    // Alertas críticas de componentes (umbrales alineados con audio)
     if (riskAnalysis.componentStatus.engine.risk > 85) {
       newAlerts.push({
         id: 'engine-critical',
@@ -56,12 +57,13 @@ export const VisualAlerts: React.FC<VisualAlertsProps> = ({ riskAnalysis, classN
       });
     }
 
-    if (riskAnalysis.componentStatus.fuel.level < 20) {
+    // Combustible: warning <12%, critical <8%
+    if (riskAnalysis.componentStatus.fuel.level < 12) {
       newAlerts.push({
         id: 'fuel-warning',
         message: `COMBUSTIBLE: ${Math.round(riskAnalysis.componentStatus.fuel.level)}%`,
-        type: riskAnalysis.componentStatus.fuel.level < 10 ? 'critical' : 'warning',
-        priority: riskAnalysis.componentStatus.fuel.level < 10 ? 'critical' : 'high',
+        type: riskAnalysis.componentStatus.fuel.level < 8 ? 'critical' : 'warning',
+        priority: riskAnalysis.componentStatus.fuel.level < 8 ? 'critical' : 'high',
         component: 'fuel',
         value: riskAnalysis.componentStatus.fuel.level,
         timestamp: Date.now(),
@@ -69,11 +71,26 @@ export const VisualAlerts: React.FC<VisualAlertsProps> = ({ riskAnalysis, classN
       });
     }
 
-    // Alerta de pit window
-    if (riskAnalysis.pitWindow?.recommended) {
-      const urgencyType = riskAnalysis.pitWindow.urgency === 'critical' ? 'critical' :
-                         riskAnalysis.pitWindow.urgency === 'high' ? 'warning' : 'info';
-      
+    // Frenos: warning/critical >80%
+    if (riskAnalysis.componentStatus.brakes.wear > 80) {
+      const critical = riskAnalysis.componentStatus.brakes.wear > 90;
+      newAlerts.push({
+        id: 'brakes-warning',
+        message: `FRENOS: ${Math.round(riskAnalysis.componentStatus.brakes.wear)}% desgaste`,
+        type: critical ? 'critical' : 'warning',
+        priority: critical ? 'critical' : 'high',
+        component: 'brakes',
+        value: riskAnalysis.componentStatus.brakes.wear,
+        timestamp: Date.now(),
+        duration: 8000
+      });
+    }
+
+    // Alerta de pit window: mostrar solo en 'high' o 'critical' para alinear con voz
+    if (riskAnalysis.pitWindow?.recommended &&
+        (riskAnalysis.pitWindow.urgency === 'high' || riskAnalysis.pitWindow.urgency === 'critical')) {
+      const urgencyType = riskAnalysis.pitWindow.urgency === 'critical' ? 'critical' : 'warning';
+
       newAlerts.push({
         id: 'pit-window',
         message: `PIT STOP: ${riskAnalysis.pitWindow.reason} - ${riskAnalysis.pitWindow.lapsRemaining} vueltas`,
@@ -105,7 +122,11 @@ export const VisualAlerts: React.FC<VisualAlertsProps> = ({ riskAnalysis, classN
       const filtered = prev.filter(alert => 
         !newAlerts.some(newAlert => newAlert.id === alert.id)
       );
-      return [...filtered, ...newAlerts];
+      const combined = [...filtered, ...newAlerts];
+      // Ordenar por prioridad y limitar a 2 visibles para evitar ruido
+      const order = { critical: 3, high: 2, medium: 1, low: 0 } as Record<string, number>;
+      combined.sort((a, b) => order[b.priority] - order[a.priority]);
+      return combined.slice(0, 2);
     });
 
     // Configurar animación de pulso para alertas críticas
@@ -148,14 +169,8 @@ export const VisualAlerts: React.FC<VisualAlertsProps> = ({ riskAnalysis, classN
       // En móviles, apilar en la parte inferior derecha
       return { bottom: `${16 + index * 80}px`, right: '12px' };
     }
-    const positions = {
-      critical: { top: `${headerOffsetPx}px`, right: '16px' },
-      high: { top: `${headerOffsetPx + index * 80}px`, right: '16px' },
-      medium: { top: `${headerOffsetPx}px`, right: '320px' },
-      low: { bottom: '16px', right: '16px' }
-    } as Record<string, { top?: string; right?: string; bottom?: string; left?: string }>;
-
-    return positions[alert.priority] || positions.low;
+    // Desktop: apilar en parte superior derecha bajo el header
+    return { top: `${headerOffsetPx + index * 84}px`, right: '16px' };
   };
 
   // Escuchar cambios de tamaño para responsividad
@@ -206,6 +221,12 @@ export const VisualAlerts: React.FC<VisualAlertsProps> = ({ riskAnalysis, classN
                 </div>
               )}
             </div>
+            {/* Botón para descartar */}
+            <button
+              className="ml-3 text-white/80 hover:text-white"
+              onClick={() => setActiveAlerts(prev => prev.filter(a => a.id !== alert.id))}
+              aria-label="Cerrar alerta"
+            >✕</button>
           </div>
           
           {/* Barra de progreso para duración */}
@@ -222,12 +243,17 @@ export const VisualAlerts: React.FC<VisualAlertsProps> = ({ riskAnalysis, classN
 
       {/* Panel de estado de componentes siempre visible */}
       {riskAnalysis && (
-        <div className="fixed bottom-4 left-4 bg-gray-900/95 border border-gray-600 rounded-xl p-4 shadow-2xl">
+        <div className="fixed bottom-4 right-4 bg-gray-900/95 border border-gray-600 rounded-xl p-4 shadow-2xl">
           <h3 className="text-white font-bold mb-3 flex items-center">
             <span className="mr-2">📊</span>
             Estado de Componentes
+            <button
+              className="ml-3 text-xs px-2 py-1 rounded bg-gray-700 hover:bg-gray-600"
+              onClick={() => setStatusCollapsed(s => !s)}
+            >{statusCollapsed ? 'Expandir' : 'Minimizar'}</button>
           </h3>
           
+          {!statusCollapsed && (
           <div className="grid grid-cols-2 gap-3 text-sm">
             {/* Motor */}
             <div className={`p-2 rounded-lg border ${
@@ -301,6 +327,7 @@ export const VisualAlerts: React.FC<VisualAlertsProps> = ({ riskAnalysis, classN
               </div>
             </div>
           </div>
+          )}
 
           {/* Indicador de riesgo general */}
           <div className="mt-3 pt-3 border-t border-gray-600">
@@ -319,8 +346,8 @@ export const VisualAlerts: React.FC<VisualAlertsProps> = ({ riskAnalysis, classN
         </div>
       )}
 
-      {/* Indicador de pit window */}
-      {riskAnalysis?.pitWindow?.recommended && (
+      {/* Indicador de pit window solo crítico al centro; el resto va como alerta compacta */}
+      {riskAnalysis?.pitWindow?.recommended && riskAnalysis.pitWindow.urgency === 'critical' && (
         <div className={`fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 
           ${riskAnalysis.pitWindow.urgency === 'critical' ? 'bg-red-600' : 
             riskAnalysis.pitWindow.urgency === 'high' ? 'bg-orange-600' : 'bg-blue-600'}

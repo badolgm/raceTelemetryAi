@@ -9,6 +9,12 @@ export interface TrackModel {
   id: string;
   normalization: TrackModelNormalization;
   sectorCount?: number;
+  // Definición opcional de sectores precisos por longitud
+  sectors?: Array<{ name?: string; length_m: number }>
+  // Pit lane positions opcionales en metros desde línea de meta
+  pit?: { entry_m?: number | null; exit_m?: number | null };
+  // Longitud opcional para sobreescribir si difiere del catálogo
+  lapDistance_m?: number;
   // Espacio para parámetros físicos futuros (coeficientes térmicos, mu, etc.)
   physics?: Record<string, number>;
 }
@@ -38,6 +44,9 @@ export async function loadTrackModel(trackId: string): Promise<TrackModel> {
       id: trackId,
       normalization: { ...defaultModel.normalization, ...(entry.normalization || {}) },
       sectorCount: entry.sectorCount ?? defaultModel.sectorCount,
+      sectors: Array.isArray(entry.sectors) ? entry.sectors : undefined,
+      pit: entry.pit || undefined,
+      lapDistance_m: typeof entry.lapDistance_m === 'number' ? entry.lapDistance_m : undefined,
       physics: entry.physics || {},
     };
     cache[trackId] = model;

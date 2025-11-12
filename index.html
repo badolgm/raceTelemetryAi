@@ -22,6 +22,30 @@
       ::-webkit-scrollbar-thumb:hover {
         background: #4b5563; /* bg-gray-600 */
       }
+
+      /* High Contrast modes for outdoor usability */
+      body.high-contrast {
+        background: radial-gradient(1200px 600px at 50% -200px, #0b0f12 0%, #000 60%, #000 100%) !important;
+      }
+      body.high-contrast .bg-gray-900 { background-color: #000 !important; }
+      body.high-contrast .bg-gray-800 { background-color: #0b0f12 !important; }
+      body.high-contrast .text-gray-300 { color: #f8fafc !important; }
+      body.high-contrast .text-gray-400 { color: #e5e7eb !important; }
+      body.high-contrast .border-gray-700 { border-color: rgba(255,255,255,0.45) !important; }
+      body.high-contrast .shadow-lg { box-shadow: 0 0 0 2px #00ffc3, 0 0 24px #00ffc3 !important; }
+      body.high-contrast .hover\:bg-gray-800:hover { background-color: #0f172a !important; }
+
+      body.ultra-contrast {
+        background: #000 !important;
+        filter: contrast(1.1) saturate(1.2);
+      }
+      body.ultra-contrast .bg-gray-900 { background-color: #000 !important; }
+      body.ultra-contrast .bg-gray-800 { background-color: #000 !important; }
+      body.ultra-contrast .text-gray-300 { color: #ffffff !important; }
+      body.ultra-contrast .text-gray-400 { color: #ffffff !important; }
+      body.ultra-contrast .border-gray-700 { border-color: #00ffc3 !important; }
+      body.ultra-contrast .shadow-lg { box-shadow: 0 0 0 2px #72f7ff, 0 0 36px #00ffc3 !important; }
+      body.ultra-contrast .hover\:bg-gray-800:hover { background-color: #0a0a0a !important; }
     </style>
     
 </head>

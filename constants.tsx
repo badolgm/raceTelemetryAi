@@ -5,7 +5,7 @@ import React from 'react';
 // Vite sirve archivos estáticos desde la raíz durante el desarrollo, por lo que
 // las rutas absolutas /TrackMap/*.pdf funcionan en dev y preview.
 export const TRACKS: Track[] = [
-  { id: 'barber', name: 'Barber Motorsports', mapUrl: '/TrackMap/Barber_Circuit_Map.pdf', lapDistance: 3830 },
+  { id: 'barber', name: 'Barber Motorsports', mapUrl: '/TrackMap/Barber_Circuit_Map.pdf', lapDistance: 3674.66 },
   { id: 'cota', name: 'Circuit of the Americas', mapUrl: '/TrackMap/COTA_Circuit_Map.pdf', lapDistance: 5513 },
   { id: 'indy', name: 'Indianapolis', mapUrl: '/TrackMap/Indy_Circuit_Map.pdf', lapDistance: 4192 },
   { id: 'road_america', name: 'Road America', mapUrl: '/TrackMap/Road_America_Map.pdf', lapDistance: 6515 },

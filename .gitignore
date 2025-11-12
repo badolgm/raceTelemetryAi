@@ -13,9 +13,14 @@ raceTelemetryAi-src-backup-*.zip
 .DS_Store
 Thumbs.db
 *.tmp
+# Entornos virtuales locales (no versionar)
+.venv/
+.venv312/
 # Ignorar datasets locales y artefactos pesados
 DataFiles/
 DataFiles/**
+# Permitir la configuración pública embebida
+!public/DataFiles/config/trackPaths.json
 
 # Directorios de build y dependencias
 node_modules/

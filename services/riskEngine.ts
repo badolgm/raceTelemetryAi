@@ -28,7 +28,28 @@ const movingAvg = (arr: number[], window: number) => {
 export const computeSectorRisks = (lapData: LapData, track: Track, numSectors = 12): SectorRisk[] => {
   const model = getTrackModelSync(track.id);
   const sectors: SectorRisk[] = [];
-  const sectorLen = track.lapDistance / (model.sectorCount ?? numSectors);
+
+  // Si hay sectores configurados con longitudes precisas, calcular start/end acumulados
+  let boundaries: Array<{ start: number; end: number }> = [];
+  const lapLen = model.lapDistance_m ?? track.lapDistance;
+  if (Array.isArray(model.sectors) && model.sectors.length > 0) {
+    let accum = 0;
+    for (const seg of model.sectors) {
+      const len = Math.max(0, seg.length_m);
+      const start = accum;
+      const end = Math.min(lapLen, accum + len);
+      boundaries.push({ start, end });
+      accum = end;
+    }
+    // Si la suma no alcanza la vuelta completa, rellenar el último tramo
+    if (accum < lapLen) boundaries.push({ start: accum, end: lapLen });
+  } else {
+    const count = model.sectorCount ?? numSectors;
+    const sectorLen = lapLen / count;
+    for (let s = 0; s < count; s++) {
+      boundaries.push({ start: s * sectorLen, end: (s + 1) * sectorLen });
+    }
+  }
 
   // Precompute arrays
   const speeds = lapData.telemetry.map(t => t.Speed);
@@ -43,9 +64,9 @@ export const computeSectorRisks = (lapData: LapData, track: Track, numSectors = 
 
   const points = lapData.telemetry;
 
-  for (let s = 0; s < (model.sectorCount ?? numSectors); s++) {
-    const start = s * sectorLen;
-    const end = (s + 1) * sectorLen;
+  for (let s = 0; s < boundaries.length; s++) {
+    const start = boundaries[s].start;
+    const end = boundaries[s].end;
 
     const inSector: TelemetryDataPoint[] = points.filter(p => p.Laptrigger_lapdist_dls >= start && p.Laptrigger_lapdist_dls < end);
     const idxs = inSector.map(p => points.indexOf(p));
@@ -147,7 +168,8 @@ export const computeVisualRiskAnalysis = (lapData: LapData, track: Track): RiskA
   const engineRisk = engineTemp > (cal.engineTempCritical ?? 110) ? 1.0 : engineTemp > (cal.engineTempHigh ?? 105) ? 0.9 : engineTemp > 95 ? 0.7 : overall;
   const tireWear = Math.min(1, (steer / Math.max(60, norm.steerMax || 45)) * 0.6 + (speed / Math.max(300, norm.speedMax || 280)) * 0.4);
   const brakeWear = Math.min(1, (brake / (norm.brakeMax || 80)));
-  const fuelLevel = Math.max(0, 1 - dist / Math.max(1, track.lapDistance));
+  const lapLen = model.lapDistance_m ?? track.lapDistance;
+  const fuelLevel = Math.max(0, 1 - dist / Math.max(1, lapLen));
 
   let urgency: 'low' | 'medium' | 'high' | 'critical' = 'low';
   let reason = '';
