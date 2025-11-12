@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Track } from '../types';
+import { getCalibrationSync } from '../services/calibration';
 
 interface CircuitViewerProps {
   track: Track;
@@ -7,61 +8,68 @@ interface CircuitViewerProps {
   className?: string;
 }
 
-// Paths aproximados para animar el coche usando motion-path CSS
+// Paths aproximados (coordenadas 0..100) para el centro de la pista
 const PATHS: Record<string, string> = {
-  barber: 'M 10 50 C 35 10, 65 10, 90 50 C 65 90, 35 90, 10 50 Z',
-  cota: 'M 8 50 C 25 15, 75 15, 92 50 C 75 85, 25 85, 8 50 Z',
-  indy: 'M 12 20 L 88 20 L 88 80 L 12 80 Z',
-  road_america: 'M 10 50 C 30 20, 70 20, 90 50 C 70 80, 30 80, 10 50 Z',
-  sebring: 'M 15 30 C 30 10, 80 10, 85 40 C 80 80, 30 90, 15 70 Z',
-  sonoma: 'M 15 50 C 40 15, 80 15, 85 50 C 80 85, 40 85, 15 50 Z',
-  vir: 'M 12 50 C 35 12, 75 12, 90 50 C 75 88, 35 88, 12 50 Z'
+  barber: 'M 12 54 C 28 18, 72 18, 88 54 C 70 90, 30 90, 12 54 Z',
+  cota: 'M 10 52 C 28 18, 72 18, 90 52 C 72 86, 28 86, 10 52 Z',
+  indy: 'M 20 25 L 80 25 L 80 75 L 20 75 Z',
+  road_america: 'M 12 52 C 32 22, 68 22, 88 52 C 68 82, 32 82, 12 52 Z',
+  sebring: 'M 18 34 C 34 16, 78 14, 86 42 C 78 84, 36 90, 18 70 Z',
+  sonoma: 'M 16 52 C 42 18, 78 18, 86 52 C 78 86, 42 86, 16 52 Z',
+  vir: 'M 14 52 C 36 16, 74 16, 90 52 C 74 88, 36 88, 14 52 Z'
 };
 
 const CircuitViewer: React.FC<CircuitViewerProps> = ({ track, progress, className = '' }) => {
-  const path = PATHS[track.id] || PATHS['barber'];
+  const [pathD, setPathD] = useState<string>(PATHS[track.id] || PATHS['barber']);
   const clamped = Math.max(0, Math.min(1, progress));
 
+  const cal = getCalibrationSync(track.id);
+  const t = cal.mapTransform || { scaleX: 1, scaleY: 1, offsetX: 0, offsetY: 0, rotate: 0 };
+
+  // Referencia al path SVG para calcular posición precisa
+  const pathRef = useRef<SVGPathElement | null>(null);
+  const [marker, setMarker] = useState<{ x: number; y: number }>({ x: 50, y: 50 });
+
+  // Intentar cargar un path exacto desde configuración si existe
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/DataFiles/config/trackPaths.json');
+        if (!res.ok) return;
+        const json = await res.json();
+        const custom = json[track.id];
+        if (custom && typeof custom === 'string' && !cancelled) setPathD(custom);
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, [track.id]);
+
+  useEffect(() => {
+    const p = pathRef.current;
+    if (!p) return;
+    const len = p.getTotalLength();
+    const pt = p.getPointAtLength(len * clamped);
+    setMarker({ x: pt.x, y: pt.y });
+  }, [clamped, track.id]);
+
   return (
-    <div className={`relative w-full h-[300px] rounded-lg overflow-hidden border border-gray-700 ${className}`}>
-      {/* Mapa PDF o imagen con fallback */}
-      {track.mapUrl?.toLowerCase().endsWith('.pdf') ? (
-        <object data={track.mapUrl} type="application/pdf" className="absolute inset-0 w-full h-full">
-          <div className="flex items-center justify-center h-full bg-gray-900 text-gray-200 p-4">
-            <div className="text-center">
-              <p className="mb-2">No se pudo renderizar el mapa PDF en este navegador.</p>
-              <a href={track.mapUrl} target="_blank" rel="noreferrer" className="inline-block px-3 py-1 rounded bg-teal-600 text-white hover:bg-teal-500">
-                Abrir mapa en nueva pestaña
-              </a>
-            </div>
-          </div>
-        </object>
-      ) : (
-        <img src={track.mapUrl} alt={`${track.name} map`} className="absolute inset-0 w-full h-full object-contain bg-black" />
-      )}
-
-      {/* Overlay semitransparente para contraste */}
-      <div className="absolute inset-0 bg-black/20 pointer-events-none" />
-
-      {/* Trayectoria y coche usando motion-path */}
-      <div
-        className="absolute left-0 top-0 w-full h-full"
-        style={{
-          // Dibujamos la trayectoria como referencia
-          backgroundImage: `radial-gradient(circle at 50% 50%, rgba(0,255,180,0.15) 2px, transparent 3px)`,
-        }}
-      />
-
-      {/* Coche */}
-      <div
-        title="Vehículo"
-        className="absolute w-4 h-4 rounded-full bg-teal-300 shadow-[0_0_10px_4px_rgba(0,255,200,0.8)]"
-        style={{
-          offsetPath: `path('${path}')`,
-          offsetDistance: `${clamped * 100}%`,
-          transform: 'translate(-8px, -8px)',
-        }}
-      />
+    <div className={`relative w-full h-[300px] rounded-lg overflow-hidden border border-gray-700 bg-black ${className}`}>
+      {/* Solo línea SVG y cursor sobre fondo oscuro */}
+      <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full">
+        <g
+          transform={`translate(${t.offsetX} ${t.offsetY}) rotate(${t.rotate} 50 50) scale(${t.scaleX} ${t.scaleY})`}
+        >
+          <path ref={pathRef} d={pathD} fill="none" stroke="rgba(0,255,200,0.35)" strokeWidth={1.2} />
+          <circle
+            cx={marker.x}
+            cy={marker.y}
+            r={2.4}
+            fill="#5eead4"
+            className="drop-shadow-[0_0_6px_rgba(0,255,200,0.9)]"
+          />
+        </g>
+      </svg>
 
       {/* Barra de progreso/lap */}
       <div className="absolute bottom-2 left-2 right-2 bg-gray-800/80 border border-gray-700 rounded-md h-3">

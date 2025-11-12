@@ -1,5 +1,6 @@
 import { LapData, Track, TelemetryDataPoint, AIAnalysis } from '../types';
 import { getCalibrationSync } from './calibration';
+import { getTrackModelSync } from './modelLoader';
 
 export interface SectorRisk {
   sector: number;
@@ -25,8 +26,9 @@ const movingAvg = (arr: number[], window: number) => {
 };
 
 export const computeSectorRisks = (lapData: LapData, track: Track, numSectors = 12): SectorRisk[] => {
+  const model = getTrackModelSync(track.id);
   const sectors: SectorRisk[] = [];
-  const sectorLen = track.lapDistance / numSectors;
+  const sectorLen = track.lapDistance / (model.sectorCount ?? numSectors);
 
   // Precompute arrays
   const speeds = lapData.telemetry.map(t => t.Speed);
@@ -41,7 +43,7 @@ export const computeSectorRisks = (lapData: LapData, track: Track, numSectors = 
 
   const points = lapData.telemetry;
 
-  for (let s = 0; s < numSectors; s++) {
+  for (let s = 0; s < (model.sectorCount ?? numSectors); s++) {
     const start = s * sectorLen;
     const end = (s + 1) * sectorLen;
 
@@ -59,13 +61,14 @@ export const computeSectorRisks = (lapData: LapData, track: Track, numSectors = 
     const avgRpm = idxs.reduce((a, i) => a + rpmMA[i], 0) / inSector.length;
 
     // Tire risk proxy: speed * steering + braking spikes
-    const tireRisk = clamp01((avgSpeed / 280) * (avgSteer / 45) + (avgBrake / 80) * 0.4);
+    const norm = model.normalization;
+    const tireRisk = clamp01((avgSpeed / (norm.speedMax || 280)) * (avgSteer / (norm.steerMax || 45)) + (avgBrake / (norm.brakeMax || 80)) * 0.4);
 
     // Engine risk proxy: sustained high RPM relative to gear and speed
-    const engineRisk = clamp01((avgRpm / 8500) * 0.9 + (avgSpeed / 300) * 0.1);
+    const engineRisk = clamp01((avgRpm / (norm.rpmMax || 8500)) * 0.9 + (avgSpeed / (norm.speedMax || 300)) * 0.1);
 
     // Brake risk proxy: pressure and decel intensity
-    const brakeRisk = clamp01((avgBrake / 80) * 0.8 + (avgSteer / 45) * 0.2);
+    const brakeRisk = clamp01((avgBrake / (norm.brakeMax || 80)) * 0.8 + (avgSteer / (norm.steerMax || 45)) * 0.2);
 
     const overall = clamp01(tireRisk * 0.45 + engineRisk * 0.3 + brakeRisk * 0.25);
 
@@ -138,10 +141,12 @@ export const computeVisualRiskAnalysis = (lapData: LapData, track: Track): RiskA
   const dist = last?.Laptrigger_lapdist_dls ?? 0;
 
   const cal = getCalibrationSync(track.id);
-  const engineTemp = Math.min(115, 70 + (rpm / 8500) * 45);
+  const model = getTrackModelSync(track.id);
+  const norm = model.normalization;
+  const engineTemp = Math.min(115, 70 + (rpm / (norm.rpmMax || 8500)) * 45);
   const engineRisk = engineTemp > (cal.engineTempCritical ?? 110) ? 1.0 : engineTemp > (cal.engineTempHigh ?? 105) ? 0.9 : engineTemp > 95 ? 0.7 : overall;
-  const tireWear = Math.min(1, (steer / 60) * 0.6 + (speed / 300) * 0.4);
-  const brakeWear = Math.min(1, (brake / 80));
+  const tireWear = Math.min(1, (steer / Math.max(60, norm.steerMax || 45)) * 0.6 + (speed / Math.max(300, norm.speedMax || 280)) * 0.4);
+  const brakeWear = Math.min(1, (brake / (norm.brakeMax || 80)));
   const fuelLevel = Math.max(0, 1 - dist / Math.max(1, track.lapDistance));
 
   let urgency: 'low' | 'medium' | 'high' | 'critical' = 'low';

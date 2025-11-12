@@ -1,0 +1,68 @@
+erDiagram
+  Session ||--o{ Lap : has
+  Session ||--o{ TelemetryFrame : streams
+  Session ||--o{ AlertEvent : generates
+  Session ||--o{ Recommendation : produces
+  TrackProfile ||--o{ Sector : defines
+
+  Session {
+    string id
+    string trackId
+    datetime startTime
+    string driver
+    string vehicle
+  }
+  Lap {
+    string id
+    string sessionId
+    int number
+    float lapTime
+    float avgSpeed
+    float fuelUsed
+  }
+  Sector {
+    string id
+    string lapId
+    int sectorIndex
+    float sectorTime
+    float maxSpeed
+  }
+  TelemetryFrame {
+    string id
+    string sessionId
+    datetime timestamp
+    float speed
+    int rpm
+    int gear
+    float throttle
+    float brake
+    float fuelLevel
+    float oilTemp
+    float waterTemp
+    float[] tireTemps
+    string gps
+    string sectorId
+    string lapId
+  }
+  AlertEvent {
+    string id
+    string sessionId
+    datetime timestamp
+    string severity
+    string code
+    string message
+    int ttl_ms
+  }
+  TrackProfile {
+    string id
+    string name
+    json sectors
+    json coefficients
+  }
+  Recommendation {
+    string id
+    string sessionId
+    datetime timestamp
+    string type
+    json details
+  }

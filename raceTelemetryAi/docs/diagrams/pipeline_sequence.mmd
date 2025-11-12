@@ -1,0 +1,16 @@
+sequenceDiagram
+  participant DF as DataFiles
+  participant DM as DataManager
+  participant ETL as ETL (Clean/Normalize)
+  participant FE as Feature Eng.
+  participant TR as Trainer
+  participant RT as Runtime
+  participant UI as UI (RiskMap/CircuitViewer)
+
+  DF->>DM: Provide session/lap/frame files (~20GB)
+  DM->>ETL: Stream chunks (validated schema)
+  ETL->>FE: Normalized frames per track
+  FE->>TR: Feature matrices + labels
+  TR-->>RT: Models + thresholds
+  RT->>UI: Risks & Recommendations
+  UI-->>RT: User feedback/telemetry updates

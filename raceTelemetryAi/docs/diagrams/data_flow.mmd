@@ -1,0 +1,15 @@
+flowchart LR
+    A[DataFiles (20GB)
+    CSV/Parquet/JSON] --> B[DataManager
+    parseDataFiles(track)]
+    B --> C[Validation & Cleaning]
+    C --> D[Normalization per track
+    (trackModels.json)]
+    D --> E[Feature Engineering
+    + Sectorization]
+    E --> F[Train/Val/Test Splits]
+    F --> G[Model Training
+    (risk, alerts, pit)]
+    G --> H[Artifacts & Metrics]
+    H --> I[Inference Runtime]
+    I --> J[RiskEngine + UI]

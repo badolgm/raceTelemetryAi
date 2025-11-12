@@ -5,6 +5,8 @@ import Dashboard from './components/Dashboard';
 import { Track, LapData, TelemetryDataPoint } from './types';
 import { TRACKS } from './constants';
 import { SimulatedAdapter, WebSocketAdapter, ConnectionStatus } from './services/telemetryAdapter';
+import { loadTrackModel } from './services/modelLoader';
+import { loadCalibration } from './services/calibration';
 
 // Helper to generate mock telemetry data for the hackathon
 const generateMockLapData = (track: Track): LapData => {
@@ -64,6 +66,9 @@ const App: React.FC = () => {
 
   useEffect(() => {
     loadTelemetryData(selectedTrack);
+    // Precargar modelo y calibración del circuito seleccionado
+    loadTrackModel(selectedTrack.id).catch(() => {});
+    loadCalibration(selectedTrack.id).catch(() => {});
   }, [selectedTrack, loadTelemetryData]);
 
   // Iniciar adapter simulado al cargar lapData

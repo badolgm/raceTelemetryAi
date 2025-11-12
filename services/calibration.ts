@@ -5,6 +5,14 @@ export interface TrackCalibration {
   tireWearMedium?: number; // 0..1
   fuelCriticalPct?: number; // 0..1
   fuelHighPct?: number; // 0..1
+  // Transformación del overlay del mapa para alinear el cursor con el PDF/imagen
+  mapTransform?: {
+    scaleX: number;
+    scaleY: number;
+    offsetX: number; // en el sistema 0..100 del overlay
+    offsetY: number; // en el sistema 0..100 del overlay
+    rotate: number;  // grados, sentido horario
+  };
 }
 
 const defaults: TrackCalibration = {
@@ -14,6 +22,7 @@ const defaults: TrackCalibration = {
   tireWearMedium: 0.75,
   fuelCriticalPct: 0.08,
   fuelHighPct: 0.12,
+  mapTransform: { scaleX: 1, scaleY: 1, offsetX: 0, offsetY: 0, rotate: 0 },
 };
 
 let cache: Record<string, TrackCalibration> = {};
