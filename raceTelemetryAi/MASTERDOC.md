@@ -142,7 +142,96 @@ sequenceDiagram
   VisualAlerts-->>Dashboard: RiskAnalysis
   Dashboard->>AIAssistant: onClick Analyze
   AIAssistant->>RiskEngine: computeRiskAnalysis(lapData, track)
-  RiskEngine-->>AIAssistant: AIAnalysis
+ RiskEngine-->>AIAssistant: AIAnalysis
+```
+
+3.5 Diagrama de flujo de datos (end-to-end)
+![Flujo de datos](./docs/diagrams/data_flow.svg)
+```mermaid
+flowchart LR
+  subgraph Ingesta
+    A[CSV/ZIP DataFiles] --> B[TelemetryAdapter]
+    B --> C[DataManager]
+  end
+  subgraph Procesamiento
+    C --> D[RiskEngine]
+    D --> E[VisualAlerts]
+    D --> F[RiskMap]
+    D --> G[AIAssistant]
+  end
+  subgraph UI
+    F --> H[Dashboard]
+    G --> H
+    E --> H
+    H --> I[CircuitViewer]
+  end
+```
+
+3.6 Diagrama ER (modelo de datos)
+![Diagrama ER](./docs/diagrams/er_diagram.svg)
+```mermaid
+erDiagram
+  TRACKS {
+    string id
+    string name
+    number lapDistance
+    string mapUrl
+  }
+  SESSIONS {
+    string id
+    string series
+    date eventDate
+    string trackId
+    string driver
+    string car
+  }
+  LAPS {
+    string id
+    string sessionId
+    number lapNumber
+    number lapTimeMs
+  }
+  LAP_TELEMETRY {
+    string lapId
+    number sampleIndex
+    number distance_m
+    number speed_kmh
+    number rpm
+    number gear
+    number throttle_pct
+    number brake_bar
+    number steer_deg
+  }
+  SECTOR_RISK {
+    string lapId
+    number sectorNo
+    number start_m
+    number end_m
+    float tireRisk
+    float engineRisk
+    float brakeRisk
+    float overall
+  }
+  TRACKS ||--o{ SESSIONS : has
+  SESSIONS ||--o{ LAPS : includes
+  LAPS ||--o{ LAP_TELEMETRY : contains
+  LAPS ||--o{ SECTOR_RISK : risks
+```
+
+3.7 Diagrama de secuencia del pipeline
+![Secuencia del pipeline](./docs/diagrams/pipeline_sequence.svg)
+```mermaid
+sequenceDiagram
+  participant DataFiles
+  participant Adapter
+  participant DataManager
+  participant RiskEngine
+  participant UI
+  DataFiles->>Adapter: Leer CSV/ZIP
+  Adapter->>DataManager: Normalizar muestras
+  DataManager->>RiskEngine: LapData + Track
+  RiskEngine-->>UI: SectorRisk[], VisualAlerts, AIAnalysis
+  UI-->>User: Render Mapas/Gráficas/Alertas
 ```
 
 4. Motor de riesgos (fórmulas y supuestos)
