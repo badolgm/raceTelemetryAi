@@ -1,4 +1,8 @@
 
+<p align="center">
+  <img src="assets/hack-the-track-banner.svg" alt="Hack the Track — Unleash the Data. Engineer Victory." width="100%" />
+</p>
+
 # Hackathon 2025: Race Telemetry AI Coach
 
 Proyecto base y documentación para analizar telemetría de competición (GR Cup / SRO) y visualizar insights por sectores de pista, con IA orientada a coaching en tiempo real y post‑sesión.
