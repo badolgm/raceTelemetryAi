@@ -1,6 +1,7 @@
 import React from 'react';
 import { Track } from '../types';
 import { TRACKS, ICONS } from '../constants';
+import { useI18n } from '../services/i18n';
 
 interface SidebarProps {
   selectedTrack: Track;
@@ -8,11 +9,12 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ selectedTrack, onSelectTrack }) => {
+  const { t } = useI18n();
   return (
     <aside className="w-full md:w-64 bg-gray-900/60 backdrop-blur-sm border-r border-gray-800 p-4 flex-shrink-0">
       <h2 className="text-lg font-semibold text-gray-300 mb-4 flex items-center">
         <span className="mr-2 text-cyan-400">{ICONS.track}</span>
-        Select Racetrack
+        {t('sidebar.selectTrack')}
       </h2>
       <ul className="space-y-2">
         {TRACKS.map((track) => (

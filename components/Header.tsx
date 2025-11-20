@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { audioAlerts } from '../services/audioAlerts';
+import { useI18n } from '../services/i18n';
 
 interface HeaderProps {
   connectionStatus?: 'disconnected' | 'connecting' | 'connected';
@@ -9,6 +10,7 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ connectionStatus = 'connected', dataSource = 'demo', onChangeDataSource }) => {
+  const { t, lang, setLang, voiceLocale } = useI18n();
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [displayMode, setDisplayMode] = useState<'normal' | 'high' | 'ultra'>('normal');
 
@@ -27,6 +29,12 @@ const Header: React.FC<HeaderProps> = ({ connectionStatus = 'connected', dataSou
     if (mode === 'ultra') body.classList.add('ultra-contrast');
   };
 
+  const changeLanguage = (next: 'es' | 'en') => {
+    setLang(next);
+    audioAlerts.stopAll();
+    audioAlerts.updateSettings({ language: next === 'en' ? 'en-US' : 'es-ES' });
+  };
+
   return (
     <header className="bg-gray-900/80 backdrop-blur-sm border-b border-gray-700 shadow-lg sticky top-0 z-20">
       <div className="container mx-auto px-4 py-3">
@@ -34,52 +42,63 @@ const Header: React.FC<HeaderProps> = ({ connectionStatus = 'connected', dataSou
           className="text-2xl md:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-lime-300 via-emerald-400 to-green-500 drop-shadow-[0_0_10px_rgba(16,185,129,0.65)] motion-safe:animate-pulse"
           style={{ textShadow: '0 0 10px rgba(16,185,129,0.55), 0 0 22px rgba(16,185,129,0.35)' }}
         >
-          Race Telemetry AI Coach
+          {t('app.title')}
         </h1>
         <div className="mt-2 flex items-center gap-4">
           <span className="flex items-center text-sm">
             <span className={`inline-block w-2 h-2 rounded-full mr-2 ${connectionStatus === 'connected' ? 'bg-green-500' : connectionStatus === 'connecting' ? 'bg-yellow-500' : 'bg-gray-500'}`} />
-            <span className="text-gray-300">Conexión: {dataSource === 'demo' ? 'Demo' : dataSource === 'csv' ? 'CSV' : 'WebSocket'}</span>
+            <span className="text-gray-300">{t('header.connection')}: {dataSource === 'demo' ? t('source.demo') : dataSource === 'csv' ? t('source.csv') : t('source.ws')}</span>
           </span>
           <div className="flex items-center gap-2 text-sm">
-            <label className="text-gray-300">Fuente:</label>
+            <label className="text-gray-300">{t('header.source')}:</label>
             <select
               value={dataSource}
               onChange={(e) => onChangeDataSource?.(e.target.value as 'demo' | 'ws' | 'csv')}
               className="bg-gray-800 border border-gray-600 text-gray-200 px-2 py-1 rounded"
             >
-              <option value="demo">Demo</option>
-              <option value="csv">CSV</option>
-              <option value="ws">WebSocket</option>
+              <option value="demo">{t('source.demo')}</option>
+              <option value="csv">{t('source.csv')}</option>
+              <option value="ws">{t('source.ws')}</option>
             </select>
           </div>
           <div className="flex items-center gap-2 text-sm">
-            <label className="text-gray-300">Modo visual:</label>
+            <label className="text-gray-300">{t('header.visualMode')}:</label>
             <select
               value={displayMode}
               onChange={(e) => applyDisplayMode(e.target.value as 'normal' | 'high' | 'ultra')}
               className="bg-gray-800 border border-gray-600 text-gray-200 px-2 py-1 rounded"
-              title="Ajusta contraste para uso exterior"
+              title={t('header.visualModeHint')}
             >
-              <option value="normal">Normal</option>
-              <option value="high">Contraste alto (sol)</option>
-              <option value="ultra">Contraste ultra (sol fuerte)</option>
+              <option value="normal">{t('display.normal')}</option>
+              <option value="high">{t('display.high')}</option>
+              <option value="ultra">{t('display.ultra')}</option>
+            </select>
+          </div>
+          <div className="flex items-center gap-2 text-sm">
+            <label className="text-gray-300">{t('header.language')}:</label>
+            <select
+              value={lang}
+              onChange={(e) => changeLanguage(e.target.value as 'es' | 'en')}
+              className="bg-gray-800 border border-gray-600 text-gray-200 px-2 py-1 rounded"
+            >
+              <option value="es">{t('language.es')}</option>
+              <option value="en">{t('language.en')}</option>
             </select>
           </div>
           <button
             onClick={toggleVoice}
             className={`text-sm px-3 py-1 rounded border ${voiceEnabled ? 'border-green-500 text-green-300' : 'border-gray-500 text-gray-300'} hover:bg-gray-800`}
             aria-pressed={voiceEnabled}
-            title="Activar/Desactivar voz"
+            title={voiceEnabled ? t('header.voiceOn') : t('header.voiceOff')}
           >
-            {voiceEnabled ? 'Voz: ON' : 'Voz: OFF'}
+            {voiceEnabled ? t('header.voiceOn') : t('header.voiceOff')}
           </button>
           <button
             onClick={() => audioAlerts.testVoice()}
             className="text-sm px-3 py-1 rounded border border-blue-500 text-blue-300 hover:bg-gray-800"
-            title="Probar voz"
+            title={t('header.testVoice')}
           >
-            Probar voz
+            {t('header.testVoice')}
           </button>
         </div>
       </div>

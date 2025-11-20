@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { AlertMessage } from '../services/audioAlerts';
 import { RiskAnalysis } from '../services/riskEngine';
+import { useI18n } from '../services/i18n';
 
 interface VisualAlertsProps {
   riskAnalysis: RiskAnalysis | null;
@@ -24,17 +25,17 @@ export const VisualAlerts: React.FC<VisualAlertsProps> = ({ riskAnalysis, classN
   const [pulseAnimation, setPulseAnimation] = useState<string>('');
   const [isMobile, setIsMobile] = useState<boolean>(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
   const [statusCollapsed, setStatusCollapsed] = useState<boolean>(false);
+  const { t } = useI18n();
 
   useEffect(() => {
     if (!riskAnalysis) return;
 
     const newAlerts: FloatingAlert[] = [];
 
-    // Alertas críticas de componentes (umbrales alineados con audio)
     if (riskAnalysis.componentStatus.engine.risk > 85) {
       newAlerts.push({
         id: 'engine-critical',
-        message: `MOTOR CRÍTICO: ${Math.round(riskAnalysis.componentStatus.engine.temp)}°C`,
+        message: t('visual.engineCritical', { temp: Math.round(riskAnalysis.componentStatus.engine.temp) }),
         type: 'critical',
         priority: 'critical',
         component: 'engine',
@@ -47,7 +48,7 @@ export const VisualAlerts: React.FC<VisualAlertsProps> = ({ riskAnalysis, classN
     if (riskAnalysis.componentStatus.tires.wear > 80) {
       newAlerts.push({
         id: 'tires-warning',
-        message: `NEUMÁTICOS: ${Math.round(riskAnalysis.componentStatus.tires.wear)}% desgaste`,
+        message: t('visual.tiresStatus', { wear: Math.round(riskAnalysis.componentStatus.tires.wear) }),
         type: riskAnalysis.componentStatus.tires.wear > 90 ? 'critical' : 'warning',
         priority: riskAnalysis.componentStatus.tires.wear > 90 ? 'critical' : 'high',
         component: 'tires',
@@ -57,11 +58,10 @@ export const VisualAlerts: React.FC<VisualAlertsProps> = ({ riskAnalysis, classN
       });
     }
 
-    // Combustible: warning <12%, critical <8%
     if (riskAnalysis.componentStatus.fuel.level < 12) {
       newAlerts.push({
         id: 'fuel-warning',
-        message: `COMBUSTIBLE: ${Math.round(riskAnalysis.componentStatus.fuel.level)}%`,
+        message: t('visual.fuelStatus', { level: Math.round(riskAnalysis.componentStatus.fuel.level) }),
         type: riskAnalysis.componentStatus.fuel.level < 8 ? 'critical' : 'warning',
         priority: riskAnalysis.componentStatus.fuel.level < 8 ? 'critical' : 'high',
         component: 'fuel',
@@ -71,12 +71,11 @@ export const VisualAlerts: React.FC<VisualAlertsProps> = ({ riskAnalysis, classN
       });
     }
 
-    // Frenos: warning/critical >80%
     if (riskAnalysis.componentStatus.brakes.wear > 80) {
       const critical = riskAnalysis.componentStatus.brakes.wear > 90;
       newAlerts.push({
         id: 'brakes-warning',
-        message: `FRENOS: ${Math.round(riskAnalysis.componentStatus.brakes.wear)}% desgaste`,
+        message: t('visual.brakesStatus', { wear: Math.round(riskAnalysis.componentStatus.brakes.wear) }),
         type: critical ? 'critical' : 'warning',
         priority: critical ? 'critical' : 'high',
         component: 'brakes',
@@ -86,14 +85,13 @@ export const VisualAlerts: React.FC<VisualAlertsProps> = ({ riskAnalysis, classN
       });
     }
 
-    // Alerta de pit window: mostrar solo en 'high' o 'critical' para alinear con voz
     if (riskAnalysis.pitWindow?.recommended &&
         (riskAnalysis.pitWindow.urgency === 'high' || riskAnalysis.pitWindow.urgency === 'critical')) {
       const urgencyType = riskAnalysis.pitWindow.urgency === 'critical' ? 'critical' : 'warning';
 
       newAlerts.push({
         id: 'pit-window',
-        message: `PIT STOP: ${riskAnalysis.pitWindow.reason} - ${riskAnalysis.pitWindow.lapsRemaining} vueltas`,
+        message: t('visual.pitWindow', { reason: riskAnalysis.pitWindow.reason, laps: riskAnalysis.pitWindow.lapsRemaining, lapsWord: t('units.laps') }),
         type: urgencyType,
         priority: riskAnalysis.pitWindow.urgency,
         component: 'pit',
@@ -103,11 +101,10 @@ export const VisualAlerts: React.FC<VisualAlertsProps> = ({ riskAnalysis, classN
       });
     }
 
-    // Alerta de riesgo general
     if (riskAnalysis.overallRisk > 70) {
       newAlerts.push({
         id: 'overall-risk',
-        message: `RIESGO GENERAL: ${riskAnalysis.overallRisk}%`,
+        message: t('visual.overallRisk', { risk: riskAnalysis.overallRisk }),
         type: riskAnalysis.overallRisk > 85 ? 'critical' : 'warning',
         priority: riskAnalysis.overallRisk > 85 ? 'critical' : 'high',
         component: 'overall',
@@ -214,10 +211,10 @@ export const VisualAlerts: React.FC<VisualAlertsProps> = ({ riskAnalysis, classN
               <div className="font-bold text-lg">{alert.message}</div>
               {alert.value !== undefined && (
                 <div className="text-sm opacity-80">
-                  Valor: {Math.round(alert.value)}
+                  {t('alerts.value')}: {Math.round(alert.value)}
                   {alert.component === 'engine' && '°C'}
                   {(alert.component === 'tires' || alert.component === 'fuel' || alert.component === 'overall') && '%'}
-                  {alert.component === 'pit' && ' vueltas'}
+                  {alert.component === 'pit' && ` ${t('units.laps')}`}
                 </div>
               )}
             </div>
@@ -246,11 +243,11 @@ export const VisualAlerts: React.FC<VisualAlertsProps> = ({ riskAnalysis, classN
         <div className="fixed bottom-4 right-4 bg-gray-900/95 border border-gray-600 rounded-xl p-4 shadow-2xl">
           <h3 className="text-white font-bold mb-3 flex items-center">
             <span className="mr-2">📊</span>
-            Estado de Componentes
+            {t('alerts.componentsStatus')}
             <button
               className="ml-3 text-xs px-2 py-1 rounded bg-gray-700 hover:bg-gray-600"
               onClick={() => setStatusCollapsed(s => !s)}
-            >{statusCollapsed ? 'Expandir' : 'Minimizar'}</button>
+            >{statusCollapsed ? t('alerts.expand') : t('alerts.minimize')}</button>
           </h3>
           
           {!statusCollapsed && (
@@ -262,7 +259,7 @@ export const VisualAlerts: React.FC<VisualAlertsProps> = ({ riskAnalysis, classN
               'bg-green-900/50 border-green-500'
             }`}>
               <div className="flex items-center justify-between">
-                <span className="text-white">🔥 Motor</span>
+                <span className="text-white">🔥 {t('comp.engine')}</span>
                 <span className={`font-bold ${
                   riskAnalysis.componentStatus.engine.risk > 85 ? 'text-red-300' :
                   riskAnalysis.componentStatus.engine.risk > 60 ? 'text-yellow-300' :
@@ -280,7 +277,7 @@ export const VisualAlerts: React.FC<VisualAlertsProps> = ({ riskAnalysis, classN
               'bg-green-900/50 border-green-500'
             }`}>
               <div className="flex items-center justify-between">
-                <span className="text-white">🏁 Neumáticos</span>
+                <span className="text-white">🏁 {t('comp.tires')}</span>
                 <span className={`font-bold ${
                   riskAnalysis.componentStatus.tires.wear > 80 ? 'text-red-300' :
                   riskAnalysis.componentStatus.tires.wear > 60 ? 'text-yellow-300' :
@@ -298,7 +295,7 @@ export const VisualAlerts: React.FC<VisualAlertsProps> = ({ riskAnalysis, classN
               'bg-green-900/50 border-green-500'
             }`}>
               <div className="flex items-center justify-between">
-                <span className="text-white">⛽ Combustible</span>
+                <span className="text-white">⛽ {t('comp.fuel')}</span>
                 <span className={`font-bold ${
                   riskAnalysis.componentStatus.fuel.level < 20 ? 'text-red-300' :
                   riskAnalysis.componentStatus.fuel.level < 40 ? 'text-yellow-300' :
@@ -316,7 +313,7 @@ export const VisualAlerts: React.FC<VisualAlertsProps> = ({ riskAnalysis, classN
               'bg-green-900/50 border-green-500'
             }`}>
               <div className="flex items-center justify-between">
-                <span className="text-white">🛑 Frenos</span>
+                <span className="text-white">🛑 {t('comp.brakes')}</span>
                 <span className={`font-bold ${
                   riskAnalysis.componentStatus.brakes.wear > 75 ? 'text-red-300' :
                   riskAnalysis.componentStatus.brakes.wear > 50 ? 'text-yellow-300' :
@@ -332,7 +329,7 @@ export const VisualAlerts: React.FC<VisualAlertsProps> = ({ riskAnalysis, classN
           {/* Indicador de riesgo general */}
           <div className="mt-3 pt-3 border-t border-gray-600">
             <div className="flex items-center justify-between">
-              <span className="text-white font-medium">Riesgo General:</span>
+              <span className="text-white font-medium">{t('overall.risk')}:</span>
               <div className={`px-3 py-1 rounded-full text-sm font-bold ${
                 riskAnalysis.overallRisk > 80 ? 'bg-red-600 text-white' :
                 riskAnalysis.overallRisk > 60 ? 'bg-yellow-600 text-white' :
@@ -356,14 +353,14 @@ export const VisualAlerts: React.FC<VisualAlertsProps> = ({ riskAnalysis, classN
         `}>
           <div className="text-center">
             <div className="text-4xl mb-2">🏎️</div>
-            <div className="text-xl font-bold mb-2">PIT STOP RECOMENDADO</div>
-            <div className="text-lg">{riskAnalysis.pitWindow.reason}</div>
+            <div className="text-xl font-bold mb-2">{t('visual.pitRecommendedTitle')}</div>
+            <div className="text-lg">{t('visual.pitWindow', { reason: riskAnalysis.pitWindow.reason, laps: riskAnalysis.pitWindow.lapsRemaining, lapsWord: t('units.laps') })}</div>
             <div className="text-sm mt-2 opacity-90">
-              {riskAnalysis.pitWindow.lapsRemaining} vueltas restantes
+              {riskAnalysis.pitWindow.lapsRemaining} {t('units.laps')}
             </div>
             {riskAnalysis.pitWindow.timeToDecision && (
               <div className="text-sm mt-1 opacity-90">
-                Decisión en: {Math.round(riskAnalysis.pitWindow.timeToDecision / 60)} min
+                {t('visual.decisionIn', { minutes: Math.round(riskAnalysis.pitWindow.timeToDecision / 60) })}
               </div>
             )}
           </div>

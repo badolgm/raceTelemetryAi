@@ -1,3 +1,5 @@
+import es from '../i18n/es.json';
+import en from '../i18n/en.json';
 // Audio Alerts System - Sistema de alertas por voz para el piloto
 export interface AlertMessage {
   id: string;
@@ -26,6 +28,18 @@ class AudioAlertsSystem {
   private isEnabled: boolean = true;
   private lastSpokenTime: number = 0;
   private minTimeBetweenAlerts: number = 3000; // 3 segundos mínimo entre alertas
+  private dictEs: Record<string, string> = es as Record<string, string>;
+  private dictEn: Record<string, string> = en as Record<string, string>;
+  private format(str: string, params?: Record<string, string | number>) {
+    if (!params) return str;
+    return str.replace(/\{(.*?)\}/g, (_, k) => String(params[k] ?? `{${k}}`));
+  }
+  private tt(key: string, params?: Record<string, string | number>) {
+    const lang = this.settings.language.startsWith('en') ? 'en' : 'es';
+    const dict = lang === 'en' ? this.dictEn : this.dictEs;
+    const phrase = dict[key] ?? key;
+    return this.format(phrase, params);
+  }
 
   constructor() {
     this.synthesis = window.speechSynthesis;
@@ -41,15 +55,17 @@ class AudioAlertsSystem {
     this.initializeVoices();
   }
 
+  private chooseVoiceForLanguage(lang: 'es-ES' | 'en-US') {
+    const voices = this.synthesis.getVoices();
+    const pref = lang.startsWith('en') ? 'en' : 'es';
+    const preferred = voices.find(v => v.lang.toLowerCase().startsWith(pref) && v.name.includes('Microsoft'))
+      || voices.find(v => v.lang.toLowerCase().startsWith(pref));
+    if (preferred) this.settings.voice = preferred.name;
+  }
+
   private initializeVoices() {
     const setVoices = () => {
-      const voices = this.synthesis.getVoices();
-      const spanishVoice = voices.find(voice => 
-        voice.lang.startsWith('es') && voice.name.includes('Microsoft')
-      );
-      if (spanishVoice) {
-        this.settings.voice = spanishVoice.name;
-      }
+      this.chooseVoiceForLanguage(this.settings.language);
     };
 
     if (this.synthesis.getVoices().length > 0) {
@@ -74,25 +90,25 @@ class AudioAlertsSystem {
 
     switch (urgency) {
       case 'prepare':
-        message = `Preparar pit stop en ${Math.round(timeToReach)} segundos. Motivo: ${reason}`;
+        message = this.tt('voice.preparePit', { time: Math.round(timeToReach), reason });
         type = 'pit_warning';
         priority = 'medium';
         break;
       
       case 'warning':
-        message = `Atención: Pit stop en ${Math.round(timeToReach)} segundos. ${reason}. Preparar frenada`;
+        message = this.tt('voice.pitWarning', { time: Math.round(timeToReach), reason });
         type = 'pit_warning';
         priority = 'high';
         break;
       
       case 'now':
-        message = `¡PIT AHORA! Entrada de pit en ${Math.round(timeToReach)} segundos. ¡FRENA YA!`;
+        message = this.tt('voice.pitNow', { time: Math.round(timeToReach) });
         type = 'pit_now';
         priority = 'critical';
         break;
       
       case 'critical':
-        message = `¡EMERGENCIA! Pit inmediato. ${reason}. ¡REDUCE VELOCIDAD!`;
+        message = this.tt('voice.pitCritical', { reason });
         type = 'pit_now';
         priority = 'critical';
         break;
@@ -123,13 +139,13 @@ class AudioAlertsSystem {
     switch (component) {
       case 'engine':
         if (severity > 90) {
-          message = `¡PELIGRO! Temperatura motor ${Math.round(currentValue)}°C. Pit inmediato`;
+          message = this.tt('voice.engineCritical', { temp: Math.round(currentValue) });
           priority = 'critical';
         } else if (severity > 70) {
-          message = `Advertencia: Motor caliente ${Math.round(currentValue)}°C. Reducir potencia`;
+          message = this.tt('voice.engineHot', { temp: Math.round(currentValue) });
           priority = 'high';
         } else {
-          message = `Motor: ${Math.round(currentValue)}°C. Monitorear temperatura`;
+          message = this.tt('voice.engineMonitor', { temp: Math.round(currentValue) });
           priority = 'medium';
         }
         type = 'critical_temp';
@@ -137,13 +153,13 @@ class AudioAlertsSystem {
 
       case 'tires':
         if (severity > 85) {
-          message = `¡Neumáticos críticos! ${predictedFailure} vueltas restantes. Pit urgente`;
+          message = this.tt('voice.tiresCritical', { laps: predictedFailure });
           priority = 'critical';
         } else if (severity > 65) {
-          message = `Neumáticos desgastados. Preparar pit en ${predictedFailure} vueltas`;
+          message = this.tt('voice.tiresWorn', { laps: predictedFailure });
           priority = 'high';
         } else {
-          message = `Neumáticos: ${Math.round(severity)}% desgaste. ${predictedFailure} vueltas estimadas`;
+          message = this.tt('voice.tiresInfo', { wear: Math.round(severity), laps: predictedFailure });
           priority = 'medium';
         }
         type = 'tire_degradation';
@@ -151,13 +167,13 @@ class AudioAlertsSystem {
 
       case 'fuel':
         if (severity > 90) {
-          message = `¡Combustible crítico! ${Math.round(currentValue)}%. Pit inmediato`;
+          message = this.tt('voice.fuelCritical', { level: Math.round(currentValue) });
           priority = 'critical';
         } else if (severity > 70) {
-          message = `Combustible bajo: ${Math.round(currentValue)}%. Planificar pit stop`;
+          message = this.tt('voice.fuelLow', { level: Math.round(currentValue) });
           priority = 'high';
         } else {
-          message = `Combustible: ${Math.round(currentValue)}%. ${predictedFailure} vueltas restantes`;
+          message = this.tt('voice.fuelInfo', { level: Math.round(currentValue), laps: predictedFailure });
           priority = 'low';
         }
         type = 'fuel_low';
@@ -165,10 +181,10 @@ class AudioAlertsSystem {
 
       case 'brakes':
         if (severity > 80) {
-          message = `¡Frenos desgastados! Reducir agresividad. ${predictedFailure} vueltas máximo`;
+          message = this.tt('voice.brakesWorn', { laps: predictedFailure });
           priority = 'high';
         } else {
-          message = `Frenos: ${Math.round(severity)}% desgaste. ${predictedFailure} vueltas estimadas`;
+          message = this.tt('voice.brakesInfo', { wear: Math.round(severity), laps: predictedFailure });
           priority = 'medium';
         }
         type = 'critical_temp';
@@ -292,7 +308,11 @@ class AudioAlertsSystem {
 
   // Configurar ajustes de voz
   updateSettings(newSettings: Partial<VoiceSettings>) {
+    const prevLang = this.settings.language;
     this.settings = { ...this.settings, ...newSettings };
+    if (newSettings.language && newSettings.language !== prevLang) {
+      this.chooseVoiceForLanguage(this.settings.language);
+    }
   }
 
   // Habilitar/deshabilitar sistema
@@ -316,7 +336,7 @@ class AudioAlertsSystem {
       id: 'test',
       type: 'strategy',
       priority: 'medium',
-      message: 'Sistema de alertas de voz funcionando correctamente',
+      message: this.tt('voice.test'),
       timestamp: Date.now(),
       spoken: false
     };

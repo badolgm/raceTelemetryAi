@@ -2,6 +2,7 @@ import React from 'react';
 import Card from './ui/Card';
 import { Track } from '../types';
 import { SectorRisk } from '../services/riskEngine';
+import { useI18n } from '../services/i18n';
 
 interface RiskMapProps {
   track: Track;
@@ -16,16 +17,17 @@ const riskColor = (v: number) => {
 };
 
 const RiskMap: React.FC<RiskMapProps> = ({ track, sectorRisks }) => {
+  const { t } = useI18n();
   return (
     <Card>
-      <h3 className="text-lg font-semibold text-gray-200 mb-2">Risk Map — {track.name}</h3>
+      <h3 className="text-lg font-semibold text-gray-200 mb-2">{t('riskMap.title', { track: track.name })}</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {track.mapUrl.toLowerCase().endsWith('.pdf') ? (
           <object data={track.mapUrl} type="application/pdf" className="w-full h-[260px] rounded-md border border-gray-700">
             <div className="flex items-center justify-center h-full bg-gray-900 text-gray-200 p-4 rounded-md">
               <div className="text-center">
-                <p className="mb-2">No se pudo mostrar el mapa PDF aquí.</p>
-                <a href={track.mapUrl} target="_blank" rel="noreferrer" className="inline-block px-3 py-1 rounded bg-teal-600 text-white hover:bg-teal-500">Abrir PDF</a>
+                <p className="mb-2">{t('riskMap.pdfError')}</p>
+                <a href={track.mapUrl} target="_blank" rel="noreferrer" className="inline-block px-3 py-1 rounded bg-teal-600 text-white hover:bg-teal-500">{t('riskMap.openPdf')}</a>
               </div>
             </div>
           </object>
@@ -33,20 +35,27 @@ const RiskMap: React.FC<RiskMapProps> = ({ track, sectorRisks }) => {
           <img src={track.mapUrl} alt={`${track.name} map`} className="w-full h-auto rounded-md border border-gray-700" />
         )}
         <div>
-          <p className="text-sm text-gray-400 mb-2">Riesgo por sector (global). Pasa el cursor para detalle.</p>
+          <p className="text-sm text-gray-400 mb-2">{t('riskMap.sectorRiskInfo')}</p>
           <div className="flex w-full h-10 rounded-md overflow-hidden border border-gray-700">
             {sectorRisks.map((s) => (
               <div
                 key={s.sector}
-                title={`Sector ${s.sector}\nTire: ${(s.tireRisk*100).toFixed(0)}%\nEngine: ${(s.engineRisk*100).toFixed(0)}%\nBrake: ${(s.brakeRisk*100).toFixed(0)}%`}
+                title={t('riskMap.tooltip', {
+                  sector: s.sector,
+                  tires: t('comp.tires'),
+                  tire: (s.tireRisk*100).toFixed(0),
+                  engine: (s.engineRisk*100).toFixed(0),
+                  brakes: t('comp.brakes'),
+                  brake: (s.brakeRisk*100).toFixed(0)
+                })}
                 style={{ backgroundColor: riskColor(s.overall), width: `${100 / Math.max(1, sectorRisks.length)}%` }}
                 className="transition-opacity hover:opacity-80"
               />
             ))}
           </div>
           <div className="flex justify-between text-xs text-gray-400 mt-2">
-            <span>Start</span>
-            <span>Finish</span>
+            <span>{t('riskMap.start')}</span>
+            <span>{t('riskMap.finish')}</span>
           </div>
         </div>
       </div>

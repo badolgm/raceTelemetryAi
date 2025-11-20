@@ -13,6 +13,7 @@ import { VisualAlerts } from './VisualAlerts';
 import { audioAlerts } from '../services/audioAlerts';
 import { loadCalibration } from '../services/calibration';
 import ErrorBoundary from './ui/ErrorBoundary';
+import { useI18n } from '../services/i18n';
 
 interface DashboardProps {
     track: Track;
@@ -22,6 +23,7 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ track, lapData, currentTelemetry, isLoading }) => {
+    const { t, voiceLocale } = useI18n();
     // Cargar calibración por pista en segundo plano al cambiar de circuito
     useEffect(() => {
         if (track?.id) {
@@ -81,12 +83,17 @@ const Dashboard: React.FC<DashboardProps> = ({ track, lapData, currentTelemetry,
         }
     }, [riskAnalysis, currentTelemetry, track.lapDistance]);
 
+    // Sincronizar idioma de voz con el contexto i18n incluso tras recargas/HMR
+    useEffect(() => {
+        audioAlerts.updateSettings({ language: voiceLocale });
+    }, [voiceLocale]);
+
     if (isLoading) {
         return (
             <div className="flex-grow flex items-center justify-center p-4">
                 <div className="text-center">
                     <LoadingSpinner />
-                    <p className="mt-2 text-gray-300">Loading Telemetry Data for {track.name}...</p>
+                    <p className="mt-2 text-gray-300">{t('dashboard.loading', { track: track.name })}</p>
                 </div>
             </div>
         )
@@ -95,7 +102,7 @@ const Dashboard: React.FC<DashboardProps> = ({ track, lapData, currentTelemetry,
     if (!lapData) {
          return (
             <div className="flex-grow flex items-center justify-center p-4">
-                <p className="text-red-400">No telemetry data available for {track.name}.</p>
+                <p className="text-red-400">{t('dashboard.noData', { track: track.name })}</p>
             </div>
         )
     }
@@ -113,7 +120,7 @@ const Dashboard: React.FC<DashboardProps> = ({ track, lapData, currentTelemetry,
                         />
                     </Card>
                     <Card>
-                        <h3 className="text-lg font-semibold text-gray-200 mb-2">Live Telemetry</h3>
+                        <h3 className="text-lg font-semibold text-gray-200 mb-2">{t('dashboard.liveTelemetry')}</h3>
                         <TelemetryGauges 
                             speed={currentTelemetry?.Speed ?? 0}
                             rpm={currentTelemetry?.rpm ?? 0}

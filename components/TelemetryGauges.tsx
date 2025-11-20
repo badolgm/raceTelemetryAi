@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { useI18n } from '../services/i18n';
 
 interface TelemetryGaugesProps {
   speed: number;
@@ -40,15 +41,16 @@ const Gauge: React.FC<{ value: number; maxValue: number; label: string; unit: st
 
 
 const TelemetryGauges: React.FC<TelemetryGaugesProps> = ({ speed, rpm, gear }) => {
+  const { t } = useI18n();
   return (
     <div className="flex flex-wrap justify-center items-center gap-4 md:gap-8 py-4">
-      <Gauge value={speed} maxValue={300} label="Speed" unit="km/h" color="#22d3ee" />
-      <Gauge value={rpm} maxValue={9000} label="RPM" unit="" color="#f43f5e" />
+      <Gauge value={speed} maxValue={300} label={t('gauges.speed')} unit={t('units.kmh')} color="#22d3ee" />
+      <Gauge value={rpm} maxValue={9000} label={t('gauges.rpm')} unit={t('units.rpm')} color="#f43f5e" />
       <div className="flex flex-col items-center justify-center w-32 h-32 md:w-40 md:h-40 bg-gray-800/50 border border-gray-700 rounded-full">
         <span className="text-6xl font-black text-white" style={{ fontVariantNumeric: 'tabular-nums' }}>
           {gear > 0 ? gear : 'N'}
         </span>
-        <span className="text-sm font-semibold text-gray-300 mt-1">Gear</span>
+        <span className="text-sm font-semibold text-gray-300 mt-1">{t('gauges.gear')}</span>
       </div>
     </div>
   );
