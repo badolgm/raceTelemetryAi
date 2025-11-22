@@ -19,6 +19,12 @@ Proyecto base y documentación para analizar telemetría de competición (GR Cup
 - [GitHub del autor](#github-del-autor)
 - [Licencia](#licencia)
 - [Créditos y referencias](#créditos-y-referencias)
+- [Modo IA (Gemini) y seguridad](#modo-ia-gemini-y-seguridad)
+- [Entrenamiento offline y artefactos](#entrenamiento-offline-y-artefactos)
+- [Uso por fuente: Demo, CSV y WebSocket](#uso-por-fuente-demo-csv-y-websocket)
+- [Instalación y despliegue (PC, tablet, vehículo)](#instalación-y-despliegue-pc-tablet-vehículo)
+ - [Demostración en video (YouTube)](#demostración-en-video-youtube)
+ - [Preguntas frecuentes (FAQ)](#preguntas-frecuentes-faq)
 
 ## Banners rápidos (sitios oficiales)
 
@@ -48,6 +54,120 @@ Este repositorio acompaña la aplicación web "Race Telemetry AI Coach" (Vite) y
 - Mapas de riesgo por sector y recomendaciones de conducción.
 - Gráficas de vueltas, tiempos y eventos (frenada, aceleración, cambios de marcha).
 - Integración con IA para estimar oportunidades de mejora y detectar anomalías de sensores (ECU/VBOX).
+
+### IA y entrenamiento
+- Entrenamiento offline sobre datasets locales (∼20GB) produce artefactos ligeros por pista (ej.: `public/DataFiles/models/riskModel.json`, `trackModels.json`).
+- El runtime aplica esos artefactos: pesos y umbrales por componente, normalizaciones y longitudes por pista.
+- Integración generativa opcional: si defines `VITE_API_KEY`, el servicio `Gemini` puede generar recomendaciones textuales; si no, se usa el motor de riesgo heurístico con calibración.
+
+## Modo IA (Gemini) y seguridad
+- Activación desde la UI:
+  - En el Dashboard, barra superior, botón `Configurar IA`.
+  - Pega tu clave en `Clave Gemini` y pulsa `Guardar`.
+  - Indicador cambia a `Gemini listo`.
+- Verificación en el asistente:
+  - Pulsa `Analizar vuelta`. Si la IA está activa, aparece el badge `Fuente IA: Gemini`; si no, `Fuente IA: Motor de Riesgo`.
+- Referencias de código:
+  - Controles de UI: `components/Header.tsx:126-147`.
+  - Detección de clave y fallback: `services/geminiService.ts:4-18` y `components/AIAssistant.tsx:31-36`.
+  - Badge de fuente: `components/AIAssistant.tsx:59-63`.
+- Seguridad:
+  - La clave pegada en la UI se guarda en `localStorage` del navegador y NO se sube a GitHub.
+  - Alternativa: definir `VITE_API_KEY` en el entorno del sistema o del proveedor de despliegue.
+  - No incluyas la clave en archivos versionados.
+
+## Entrenamiento offline y artefactos
+- Objetivo: evitar procesar ∼20GB en tiempo real y reducir falsos positivos. Se procesan offline y se exportan artefactos por pista.
+- Artefactos soportados por la app:
+  - `public/DataFiles/models/riskModel.json`: pesos (`tire/engine/brake`) y umbrales (`engineHigh/engineCritical/tireWearHigh/fuel*`) por pista.
+  - `public/DataFiles/models/trackModels.json`: normalizaciones (máximos realistas de `speed/rpm/brake/steer`), sectorización y longitud de vuelta.
+- Carga y uso en runtime:
+  - Loader de modelos: `services/modelLoader.ts:65-92`.
+  - Motor de riesgo que aplica pesos/umbrales: `services/riskEngine.ts:86-95,167-182`.
+  - Precarga al cambiar de pista: `components/Dashboard.tsx:23-28`.
+- Cómo verificar que se aplican:
+  - Modifica `riskModel.json` para tu pista (ej. Barber) y recarga: el panel del asistente mostrará los nuevos pesos/umbrales y cambiarán las alertas.
+  - Panel informativo del asistente: `components/AIAssistant.tsx:66-70`.
+
+## Uso por fuente: Demo, CSV y WebSocket
+- Selección de fuente en el Header: `components/Header.tsx:75-84`.
+- Demo:
+  - Fuente `demo` usa datos simulados coherentes para mostrar UI y alertas.
+- CSV (Barber incluido):
+  - Coloca tu CSV y mapping:
+    - `public/DataFiles/barber/R1_barber_telemetry_data.csv`
+    - `public/DataFiles/barber/mapping.json`
+  - Adaptador CSV: `services/telemetryAdapter.ts:95-190`.
+  - Conversión de unidades y mapeo de columnas: `services/telemetryAdapter.ts:62-79,222-233`.
+- WebSocket (tiempo real desde logger/ECU):
+  - Adaptador WS: `services/telemetryAdapter.ts:235-260`.
+  - Conecta tu logger que emita frames con el contrato `TelemetryDataPoint`.
+
+## Instalación y despliegue (PC, tablet, vehículo)
+- Desarrollo local:
+  - `npm install`
+  - `npm run dev` y abrir `http://localhost:5173/`.
+- Build de producción y vista previa:
+  - `npm run build`
+  - `npm run preview` (servidor estático de prueba).
+- Tablet del piloto (PWA/browser):
+  - Servir el `dist/` en un servidor accesible vía Wi‑Fi del paddock/coche.
+  - Abrir en Chrome/Safari y usar “Agregar a pantalla de inicio” (PWA) para acceso rápido.
+  - Fuente `ws` si conectas al logger en el vehículo; `csv` para reproducir sesiones.
+- Sin “ejecutable” nativo:
+  - Esta app es web. No incluye `.exe/.apk` por defecto.
+  - Opciones futuras: empaquetar con `Electron`/`Tauri` o usar un contenedor con `nginx` para servir `dist/` en dispositivos embebidos.
+- Claves y seguridad:
+  - Usa `Configurar IA` en la UI o variables de entorno del proveedor. Evita subir claves a Git.
+
+## Demostración en video (YouTube)
+- Objetivo: mostrar telemetría en vivo/reproducida, alertas de riesgo, análisis del asistente y la activación de Gemini.
+- Guion sugerido:
+  1) Inicio: Dashboard, explicar selector de fuente (`demo/csv/ws`) y selector de pista.
+  2) CSV Barber: seleccionar `Source: csv` y pista `Barber`. Verás gauges, mapa y barra de progreso moviéndose.
+  3) Artefactos offline: mostrar panel del asistente con `Modelo de riesgo cargado para Barber` (pesos/umbrales activos).
+  4) IA: pulsar `Configurar IA`, pegar clave de `https://aistudio.google.com/apikey`, guardar. Pulsar `Analizar vuelta` y mostrar el badge `Fuente IA: Gemini` y las recomendaciones textuales.
+  5) Alertas: provocar o explicar alertas visuales (motor/neumáticos/frenos/combustible) en `VisualAlerts`.
+  6) Cierre: cambiar a otra pista con artefactos distintos (`cota`) y repetir análisis para comparar.
+- Enlace del video:
+  - Pega tu URL aquí cuando esté publicado: `https://youtu.be/TU_ENLACE_DEMO`
+  - También puedes añadirlo al banner superior o a la sección “Descripción general”.
+
+## Preguntas frecuentes (FAQ)
+- ¿Qué clave debo usar y dónde la obtengo?
+  - Es la API key de Gemini. Obténla en `https://aistudio.google.com/apikey`.
+- ¿Se sube la clave a GitHub si la pego en la UI?
+  - No. Se guarda en `localStorage` del navegador y no forma parte del repo. En producción usa variables de entorno (`VITE_API_KEY`).
+- ¿Cómo borro la clave?
+  - Dashboard → `Configurar IA` → vacía `Clave Gemini` → `Guardar`; o `localStorage.removeItem('gemini_api_key')` en consola.
+- ¿Cómo preparo `riskModel.json` para una pista nueva?
+  - Crea una entrada con `weights` y `thresholds` calibrados, por ejemplo:
+    ```json
+    {
+      "mi_pista": {
+        "weights": { "tire": 0.50, "engine": 0.28, "brake": 0.22 },
+        "thresholds": {
+          "overallHigh": 0.65,
+          "engineHigh": 105,
+          "engineCritical": 110,
+          "tireWearHigh": 0.92,
+          "tireWearMedium": 0.76,
+          "fuelCriticalPct": 0.07,
+          "fuelHighPct": 0.12
+        }
+      }
+    }
+    ```
+  - La app aplicará estos valores en `services/riskEngine.ts:86-95,167-182`.
+- ¿Cómo uso CSV vs. WebSocket?
+  - CSV: coloca `public/DataFiles/<pista>/*.csv` y `mapping.json`. El adaptador está en `services/telemetryAdapter.ts:95-190`.
+  - WebSocket: conecta tu logger que emita frames con el contrato `TelemetryDataPoint` (`services/telemetryAdapter.ts:235-260`).
+- ¿Hay ejecutable (.exe/.apk)?
+  - No incluido por defecto. Esta app es web (Vite/React). Puedes empaquetar con `Electron/Tauri` o servir `dist/` con `nginx`.
+- ¿Cómo usar sin internet en el vehículo?
+  - Sirve `dist/` en un hotspot local (paddock/vehículo). Abre en la tablet (Chrome/Safari) y usa “Agregar a pantalla de inicio”. Fuente `ws` para tiempo real.
+- ¿Compatibilidad de dispositivos?
+  - Navegadores modernos (Chrome 116+, Safari 16+, Edge). Pantallas 10–13" recomendadas para cockpit; modo `high/ultra` contraste en exteriores.
 
 ## Documento técnico (MASTERDOC)
 Revisa el documento técnico completo en `raceTelemetryAi/MASTERDOC.md`, con diagramas UML, diseño de BD, flujos de datos y fórmulas del motor de riesgos.

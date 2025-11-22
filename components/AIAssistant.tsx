@@ -5,6 +5,8 @@ import Card from './ui/Card';
 import LoadingSpinner from './ui/LoadingSpinner';
 import { ICONS } from '../constants';
 import { useI18n } from '../services/i18n';
+import { analyzeLapData, hasGeminiKey } from '../services/geminiService';
+import { getRiskModelSync, getTrackModelSync } from '../services/modelLoader';
 
 interface AIAssistantProps {
   lapData: LapData | null;
@@ -13,17 +15,24 @@ interface AIAssistantProps {
 
 const AIAssistant: React.FC<AIAssistantProps> = ({ lapData, track }) => {
   const [analysis, setAnalysis] = useState<AIAnalysis | null>(null);
+  const [source, setSource] = useState<'gemini' | 'heuristic' | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { t } = useI18n();
+  const rm = getRiskModelSync(track.id);
+  const tm = getTrackModelSync(track.id);
 
-  const handleAnalysis = useCallback(() => {
+  const handleAnalysis = useCallback(async () => {
     if (!lapData) return;
     setIsLoading(true);
     setError(null);
     setAnalysis(null);
     try {
-      const result = computeRiskAnalysis(lapData, track);
+      const hasKey = hasGeminiKey();
+      const result = hasKey
+        ? await analyzeLapData(lapData, track)
+        : (computeRiskAnalysis(lapData, track) as AIAnalysis);
+      setSource(hasKey ? 'gemini' : 'heuristic');
       setAnalysis(result as AIAnalysis);
     } catch (err) {
       setError(err instanceof Error ? err.message : t('assistant.errorUnknown'));
@@ -46,6 +55,18 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ lapData, track }) => {
         >
             {isLoading ? t('assistant.analyzing') : t('assistant.analyze')}
         </button>
+      </div>
+      {source && (
+        <div className="mb-3 text-xs">
+          <span className={`inline-block px-2 py-1 rounded ${source === 'gemini' ? 'bg-purple-600 text-white' : 'bg-teal-600 text-white'}`}
+          >{source === 'gemini' ? t('assistant.sourceGemini') : t('assistant.sourceHeuristic')}</span>
+        </div>
+      )}
+
+      <div className="mb-3 text-xs text-gray-300">
+        <div className="opacity-90">{t('assistant.modelInfo')} {track.name}</div>
+        <div className="opacity-90">{t('assistant.weights')}: {(rm.weights?.tire ?? 0.45).toFixed(2)} / {(rm.weights?.engine ?? 0.30).toFixed(2)} / {(rm.weights?.brake ?? 0.25).toFixed(2)}</div>
+        <div className="opacity-90">{t('assistant.thresholds')}: EH {(rm.thresholds?.engineHigh ?? 105)}, EC {(rm.thresholds?.engineCritical ?? 110)}, TW {(rm.thresholds?.tireWearHigh ?? 0.9)}, F {(rm.thresholds?.fuelHighPct ?? 0.12)}</div>
       </div>
 
       <div className="mt-4 min-h-[200px]">

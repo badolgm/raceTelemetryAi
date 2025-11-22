@@ -1,7 +1,8 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { audioAlerts } from '../services/audioAlerts';
 import { useI18n } from '../services/i18n';
+import { hasGeminiKey } from '../services/geminiService';
 
 interface HeaderProps {
   connectionStatus?: 'disconnected' | 'connecting' | 'connected';
@@ -13,6 +14,9 @@ const Header: React.FC<HeaderProps> = ({ connectionStatus = 'connected', dataSou
   const { t, lang, setLang, voiceLocale } = useI18n();
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [displayMode, setDisplayMode] = useState<'normal' | 'high' | 'ultra'>('normal');
+  const [aiKeyVisible, setAiKeyVisible] = useState(false);
+  const [aiReady, setAiReady] = useState(false);
+  const [aiKey, setAiKey] = useState('');
 
   const toggleVoice = () => {
     const next = !voiceEnabled;
@@ -27,6 +31,24 @@ const Header: React.FC<HeaderProps> = ({ connectionStatus = 'connected', dataSou
     body.classList.remove('ultra-contrast');
     if (mode === 'high') body.classList.add('high-contrast');
     if (mode === 'ultra') body.classList.add('ultra-contrast');
+  };
+
+  useEffect(() => {
+    setAiReady(hasGeminiKey());
+    try {
+      const k = typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_api_key') || '' : '';
+      if (k) setAiKey(k);
+    } catch {}
+  }, []);
+
+  const saveAiKey = () => {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        if (aiKey && aiKey.length > 0) localStorage.setItem('gemini_api_key', aiKey);
+        else localStorage.removeItem('gemini_api_key');
+      }
+    } catch {}
+    setAiReady(hasGeminiKey());
   };
 
   const changeLanguage = (next: 'es' | 'en') => {
@@ -101,6 +123,28 @@ const Header: React.FC<HeaderProps> = ({ connectionStatus = 'connected', dataSou
             {t('header.testVoice')}
           </button>
         </div>
+          <div className="flex items-center gap-2 text-sm">
+            <span className={`px-2 py-1 rounded ${aiReady ? 'bg-purple-700 text-white' : 'bg-gray-700 text-gray-200'}`}>{aiReady ? t('header.aiReady') : t('header.aiNotReady')}</span>
+            <button
+              onClick={() => setAiKeyVisible(v => !v)}
+              className="text-sm px-3 py-1 rounded border border-purple-500 text-purple-300 hover:bg-gray-800"
+            >{t('header.aiSettings')}</button>
+          </div>
+          {aiKeyVisible && (
+            <div className="mt-2 flex items-center gap-2 text-sm">
+              <label className="text-gray-300">{t('header.aiKeyLabel')}:</label>
+              <input
+                type="password"
+                value={aiKey}
+                onChange={(e) => setAiKey(e.target.value)}
+                className="bg-gray-800 border border-gray-600 text-gray-200 px-2 py-1 rounded w-64"
+              />
+              <button
+                onClick={saveAiKey}
+                className="text-sm px-3 py-1 rounded border border-green-500 text-green-300 hover:bg-gray-800"
+              >{t('header.aiSave')}</button>
+            </div>
+          )}
       </div>
     </header>
   );

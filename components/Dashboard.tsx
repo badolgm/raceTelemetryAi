@@ -14,6 +14,7 @@ import { audioAlerts } from '../services/audioAlerts';
 import { loadCalibration } from '../services/calibration';
 import ErrorBoundary from './ui/ErrorBoundary';
 import { useI18n } from '../services/i18n';
+import { loadRiskModel } from '../services/modelLoader';
 
 interface DashboardProps {
     track: Track;
@@ -28,6 +29,7 @@ const Dashboard: React.FC<DashboardProps> = ({ track, lapData, currentTelemetry,
     useEffect(() => {
         if (track?.id) {
             loadCalibration(track.id).catch(() => {});
+            loadRiskModel(track.id).catch(() => {});
         }
     }, [track?.id]);
 

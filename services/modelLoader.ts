@@ -19,6 +19,19 @@ export interface TrackModel {
   physics?: Record<string, number>;
 }
 
+export interface RiskModel {
+  weights?: { tire: number; engine: number; brake: number };
+  thresholds?: {
+    overallHigh?: number;
+    engineHigh?: number;
+    engineCritical?: number;
+    tireWearHigh?: number;
+    tireWearMedium?: number;
+    fuelCriticalPct?: number;
+    fuelHighPct?: number;
+  };
+}
+
 const defaultModel: TrackModel = {
   id: 'default',
   normalization: {
@@ -31,6 +44,7 @@ const defaultModel: TrackModel = {
 };
 
 let cache: Record<string, TrackModel> = {};
+let riskCache: Record<string, RiskModel> = {};
 
 export async function loadTrackModel(trackId: string): Promise<TrackModel> {
   if (cache[trackId]) return cache[trackId];
@@ -59,4 +73,25 @@ export async function loadTrackModel(trackId: string): Promise<TrackModel> {
 
 export function getTrackModelSync(trackId: string): TrackModel {
   return cache[trackId] || { ...defaultModel, id: trackId };
+}
+
+export async function loadRiskModel(trackId: string): Promise<RiskModel> {
+  if (riskCache[trackId]) return riskCache[trackId];
+  try {
+    const res = await fetch(`/DataFiles/models/riskModel.json`);
+    if (!res.ok) throw new Error('no risk model file');
+    const json = await res.json();
+    const entry = json[trackId] || {};
+    const defaults: RiskModel = { weights: { tire: 0.45, engine: 0.3, brake: 0.25 }, thresholds: {} };
+    riskCache[trackId] = { ...defaults, ...entry };
+    return riskCache[trackId];
+  } catch {
+    const defaults: RiskModel = { weights: { tire: 0.45, engine: 0.3, brake: 0.25 }, thresholds: {} };
+    riskCache[trackId] = defaults;
+    return defaults;
+  }
+}
+
+export function getRiskModelSync(trackId: string): RiskModel {
+  return riskCache[trackId] || { weights: { tire: 0.45, engine: 0.3, brake: 0.25 }, thresholds: {} };
 }

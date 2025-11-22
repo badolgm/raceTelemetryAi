@@ -3,7 +3,19 @@ import { LapData, Track, AIAnalysis } from '../types';
 
 // Vite expone variables como import.meta.env.VITE_*
 // En el navegador no existe process.env, y usarlo causa "process is not defined".
-const API_KEY = import.meta.env.VITE_API_KEY as string | undefined;
+export const getGeminiKey = (): string | undefined => {
+  const envKey = import.meta.env.VITE_API_KEY as string | undefined;
+  if (envKey && envKey.length > 0) return envKey;
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const k = localStorage.getItem('gemini_api_key');
+      if (k && k.length > 0) return k;
+    }
+  } catch {}
+  return undefined;
+};
+
+export const hasGeminiKey = (): boolean => Boolean(getGeminiKey());
 
 const analysisSchema = {
     type: Type.OBJECT,
@@ -64,12 +76,13 @@ Focus on the most critical areas for improvement.
 
 export const analyzeLapData = async (lapData: LapData, track: Track): Promise<AIAnalysis> => {
     try {
-        if (!API_KEY) {
+        const key = getGeminiKey();
+        if (!key) {
             throw new Error("Falta VITE_API_KEY. Define VITE_API_KEY en tu entorno.");
         }
 
         // Inicializar el cliente justo antes de usarlo, con validación de API key
-        const ai = new GoogleGenAI({ apiKey: API_KEY });
+        const ai = new GoogleGenAI({ apiKey: key });
         const prompt = generateAnalysisPrompt(lapData, track);
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
