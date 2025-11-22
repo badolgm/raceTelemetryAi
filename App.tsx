@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
@@ -53,6 +53,9 @@ const App: React.FC = () => {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
   const [adapter, setAdapter] = useState<TelemetryAdapter | null>(null);
   const [dataSource, setDataSource] = useState<'demo' | 'ws' | 'csv'>('demo');
+  const [progressOverride, setProgressOverride] = useState<number | undefined>(undefined);
+  const csvIndexRef = useRef(0);
+  const csvTotalRef = useRef(0);
 
   const loadTelemetryData = useCallback((track: Track) => {
     setIsLoading(true);
@@ -71,20 +74,29 @@ const App: React.FC = () => {
     loadCalibration(selectedTrack.id).catch(() => {});
   }, [selectedTrack, loadTelemetryData]);
 
-  // Iniciar adapter según fuente seleccionada
+  // Adapter para Demo (requiere lapData pre-cargada)
   useEffect(() => {
-    // Detener adapter previo
-    adapter?.stop();
+    if (dataSource !== 'demo') return;
+    const prev = adapter; prev?.stop();
+    if (!lapData) return;
+    const sim = new SimulatedAdapter(selectedTrack, lapData, 60);
+    sim.onStatus(setConnectionStatus);
+    sim.onFrame((frame) => {
+      setCurrentTelemetry(frame);
+      setProgressOverride(undefined);
+    });
+    sim.onLapData?.((lap) => setLapData(lap));
+    sim.start();
+    setAdapter(sim);
+    return () => { sim.stop(); };
+  }, [dataSource, selectedTrack, lapData]);
 
-    if (dataSource === 'demo') {
-      if (!lapData) return; // requiere mock ya generado
-      const sim = new SimulatedAdapter(selectedTrack, lapData, 60);
-      sim.onStatus(setConnectionStatus);
-      sim.onFrame((frame) => setCurrentTelemetry(frame));
-      sim.onLapData?.((lap) => setLapData(lap));
-      sim.start();
-      setAdapter(sim);
-    } else if (dataSource === 'csv') {
+  // Adapter para CSV y WS (no dependemos de lapData para inicializar)
+  useEffect(() => {
+    if (dataSource === 'demo') return;
+    const prev = adapter; prev?.stop();
+
+    if (dataSource === 'csv') {
       const csv = new CsvFileAdapter({
         csvUrl: '/DataFiles/barber/R1_barber_telemetry_data.csv',
         mappingUrl: '/DataFiles/barber/mapping.json',
@@ -92,21 +104,34 @@ const App: React.FC = () => {
         intervalMs: 60,
       });
       csv.onStatus(setConnectionStatus);
-      csv.onFrame((frame) => setCurrentTelemetry(frame));
-      csv.onLapData((lap) => setLapData(lap));
+      csv.onFrame((frame) => {
+        setCurrentTelemetry(frame);
+        const total = Math.max(1, csvTotalRef.current);
+        csvIndexRef.current = (csvIndexRef.current + 1) % total;
+        setProgressOverride(total > 0 ? csvIndexRef.current / total : undefined);
+      });
+      csv.onLapData((lap) => {
+        setLapData(lap);
+        csvTotalRef.current = lap.telemetry.length;
+        csvIndexRef.current = 0;
+        setProgressOverride(0);
+      });
       csv.start();
       setAdapter(csv);
+      return () => { csv.stop(); };
     } else {
-      const ws = new WebSocketAdapter(undefined, lapData || undefined); // endpoint mock: undefined usa modo simulado
+      const ws = new WebSocketAdapter(undefined, lapData || undefined);
       ws.onStatus(setConnectionStatus);
-      ws.onFrame((frame) => setCurrentTelemetry(frame));
+      ws.onFrame((frame) => {
+        setCurrentTelemetry(frame);
+        setProgressOverride(undefined);
+      });
       ws.onLapData?.((lap) => setLapData(lap));
       ws.start();
       setAdapter(ws);
+      return () => { ws.stop(); };
     }
-
-    return () => { adapter?.stop(); };
-  }, [dataSource, selectedTrack, lapData]);
+  }, [dataSource, selectedTrack]);
 
   const handleSelectTrack = (track: Track) => {
     setSelectedTrack(track);
@@ -117,7 +142,7 @@ const App: React.FC = () => {
       <Header connectionStatus={connectionStatus} dataSource={dataSource} onChangeDataSource={setDataSource} />
       <div className="flex flex-col md:flex-row flex-grow overflow-hidden">
         <Sidebar selectedTrack={selectedTrack} onSelectTrack={handleSelectTrack} />
-        <Dashboard track={selectedTrack} lapData={lapData} currentTelemetry={currentTelemetry} isLoading={isLoading} />
+        <Dashboard track={selectedTrack} lapData={lapData} currentTelemetry={currentTelemetry} isLoading={isLoading} progressOverride={progressOverride} />
       </div>
     </div>
   );

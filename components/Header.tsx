@@ -41,6 +41,10 @@ const Header: React.FC<HeaderProps> = ({ connectionStatus = 'connected', dataSou
     } catch {}
   }, []);
 
+  useEffect(() => {
+    audioAlerts.updateSettings({ language: voiceLocale });
+  }, [voiceLocale]);
+
   const saveAiKey = () => {
     try {
       if (typeof localStorage !== 'undefined') {

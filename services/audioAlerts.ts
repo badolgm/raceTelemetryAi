@@ -60,7 +60,7 @@ class AudioAlertsSystem {
     const pref = lang.startsWith('en') ? 'en' : 'es';
     const preferred = voices.find(v => v.lang.toLowerCase().startsWith(pref) && v.name.includes('Microsoft'))
       || voices.find(v => v.lang.toLowerCase().startsWith(pref));
-    if (preferred) this.settings.voice = preferred.name;
+    this.settings.voice = preferred ? preferred.name : undefined;
   }
 
   private initializeVoices() {
@@ -266,10 +266,15 @@ class AudioAlertsSystem {
     utterance.volume = alert.priority === 'critical' ? 1.0 : this.settings.volume;
     utterance.lang = this.settings.language;
 
-    if (this.settings.voice) {
+    {
       const voices = this.synthesis.getVoices();
-      const selectedVoice = voices.find(voice => voice.name === this.settings.voice);
-      if (selectedVoice) utterance.voice = selectedVoice;
+      const pref = this.settings.language.startsWith('en') ? 'en' : 'es';
+      const selectedByName = this.settings.voice ? voices.find(v => v.name === this.settings.voice) : undefined;
+      const validSelected = selectedByName && selectedByName.lang.toLowerCase().startsWith(pref) ? selectedByName : undefined;
+      const fallback = voices.find(v => v.lang.toLowerCase().startsWith(pref) && v.name.includes('Microsoft'))
+        || voices.find(v => v.lang.toLowerCase().startsWith(pref));
+      const finalVoice = validSelected || fallback;
+      if (finalVoice) utterance.voice = finalVoice;
     }
 
     utterance.onend = () => {

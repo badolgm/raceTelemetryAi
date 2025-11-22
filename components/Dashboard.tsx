@@ -21,9 +21,10 @@ interface DashboardProps {
     lapData: LapData | null;
     currentTelemetry: TelemetryDataPoint | null;
     isLoading: boolean;
+    progressOverride?: number;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ track, lapData, currentTelemetry, isLoading }) => {
+const Dashboard: React.FC<DashboardProps> = ({ track, lapData, currentTelemetry, isLoading, progressOverride }) => {
     const { t, voiceLocale } = useI18n();
     // Cargar calibración por pista en segundo plano al cambiar de circuito
     useEffect(() => {
@@ -118,7 +119,7 @@ const Dashboard: React.FC<DashboardProps> = ({ track, lapData, currentTelemetry,
                         <h2 className="text-xl font-bold text-white mb-2">{track.name}</h2>
                         <CircuitViewer
                           track={track}
-                          progress={(currentTelemetry?.Laptrigger_lapdist_dls ?? 0) / Math.max(1, (getTrackModelSync(track.id).lapDistance_m ?? track.lapDistance))}
+                          progress={typeof progressOverride === 'number' ? Math.max(0, Math.min(1, progressOverride)) : (currentTelemetry?.Laptrigger_lapdist_dls ?? 0) / Math.max(1, (getTrackModelSync(track.id).lapDistance_m ?? track.lapDistance))}
                         />
                     </Card>
                     <Card>
@@ -127,6 +128,8 @@ const Dashboard: React.FC<DashboardProps> = ({ track, lapData, currentTelemetry,
                             speed={currentTelemetry?.Speed ?? 0}
                             rpm={currentTelemetry?.rpm ?? 0}
                             gear={currentTelemetry?.Gear ?? 0}
+                            speedMax={(getTrackModelSync(track.id).normalization?.speedMax ?? 300)}
+                            rpmMax={(getTrackModelSync(track.id).normalization?.rpmMax ?? 9000)}
                         />
                     </Card>
                 </div>
