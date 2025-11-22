@@ -1,6 +1,6 @@
 import { LapData, Track, TelemetryDataPoint, AIAnalysis } from '../types';
 import { getCalibrationSync } from './calibration';
-import { getTrackModelSync } from './modelLoader';
+import { getTrackModelSync, getRiskModelSync } from './modelLoader';
 
 export interface SectorRisk {
   sector: number;
@@ -91,7 +91,9 @@ export const computeSectorRisks = (lapData: LapData, track: Track, numSectors = 
     // Brake risk proxy: pressure and decel intensity
     const brakeRisk = clamp01((avgBrake / (norm.brakeMax || 80)) * 0.8 + (avgSteer / (norm.steerMax || 45)) * 0.2);
 
-    const overall = clamp01(tireRisk * 0.45 + engineRisk * 0.3 + brakeRisk * 0.25);
+    const rm = getRiskModelSync(track.id);
+    const w = rm.weights || { tire: 0.45, engine: 0.3, brake: 0.25 };
+    const overall = clamp01(tireRisk * (w.tire ?? 0.45) + engineRisk * (w.engine ?? 0.3) + brakeRisk * (w.brake ?? 0.25));
 
     sectors.push({ sector: s + 1, start, end, tireRisk, engineRisk, brakeRisk, overall });
   }
@@ -164,8 +166,11 @@ export const computeVisualRiskAnalysis = (lapData: LapData, track: Track): RiskA
   const cal = getCalibrationSync(track.id);
   const model = getTrackModelSync(track.id);
   const norm = model.normalization;
+  const rm = getRiskModelSync(track.id);
   const engineTemp = Math.min(115, 70 + (rpm / (norm.rpmMax || 8500)) * 45);
-  const engineRisk = engineTemp > (cal.engineTempCritical ?? 110) ? 1.0 : engineTemp > (cal.engineTempHigh ?? 105) ? 0.9 : engineTemp > 95 ? 0.7 : overall;
+  const eCrit = (rm.thresholds?.engineCritical ?? cal.engineTempCritical ?? 110);
+  const eHigh = (rm.thresholds?.engineHigh ?? cal.engineTempHigh ?? 105);
+  const engineRisk = engineTemp > eCrit ? 1.0 : engineTemp > eHigh ? 0.9 : engineTemp > 95 ? 0.7 : overall;
   const tireWear = Math.min(1, (steer / Math.max(60, norm.steerMax || 45)) * 0.6 + (speed / Math.max(300, norm.speedMax || 280)) * 0.4);
   const brakeWear = Math.min(1, (brake / (norm.brakeMax || 80)));
   const lapLen = model.lapDistance_m ?? track.lapDistance;
@@ -173,10 +178,14 @@ export const computeVisualRiskAnalysis = (lapData: LapData, track: Track): RiskA
 
   let urgency: 'low' | 'medium' | 'high' | 'critical' = 'low';
   let reason = '';
-  if (fuelLevel < (cal.fuelCriticalPct ?? 0.08)) { urgency = 'critical'; reason = 'Combustible crítico'; }
-  else if (fuelLevel < (cal.fuelHighPct ?? 0.12)) { urgency = 'high'; reason = 'Combustible bajo'; }
-  else if (tireWear > (cal.tireWearHigh ?? 0.9)) { urgency = 'high'; reason = 'Desgaste de llantas'; }
-  else if (tireWear > (cal.tireWearMedium ?? 0.75)) { urgency = 'medium'; reason = 'Desgaste de llantas'; }
+  const fCrit = (rm.thresholds?.fuelCriticalPct ?? cal.fuelCriticalPct ?? 0.08);
+  const fHigh = (rm.thresholds?.fuelHighPct ?? cal.fuelHighPct ?? 0.12);
+  const tHigh = (rm.thresholds?.tireWearHigh ?? cal.tireWearHigh ?? 0.9);
+  const tMed = (rm.thresholds?.tireWearMedium ?? cal.tireWearMedium ?? 0.75);
+  if (fuelLevel < fCrit) { urgency = 'critical'; reason = 'Combustible crítico'; }
+  else if (fuelLevel < fHigh) { urgency = 'high'; reason = 'Combustible bajo'; }
+  else if (tireWear > tHigh) { urgency = 'high'; reason = 'Desgaste de llantas'; }
+  else if (tireWear > tMed) { urgency = 'medium'; reason = 'Desgaste de llantas'; }
   else if (engineRisk > 0.9) { urgency = 'high'; reason = 'Temperatura del motor'; }
   else if (engineRisk > 0.8) { urgency = 'medium'; reason = 'Temperatura del motor'; }
 

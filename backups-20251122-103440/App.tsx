@@ -74,29 +74,23 @@ const App: React.FC = () => {
     loadCalibration(selectedTrack.id).catch(() => {});
   }, [selectedTrack, loadTelemetryData]);
 
-  // Adapter para Demo (requiere lapData pre-cargada)
+  // Iniciar adapter según fuente seleccionada
   useEffect(() => {
-    if (dataSource !== 'demo') return;
-    const prev = adapter; prev?.stop();
-    if (!lapData) return;
-    const sim = new SimulatedAdapter(selectedTrack, lapData, 60);
-    sim.onStatus(setConnectionStatus);
-    sim.onFrame((frame) => {
-      setCurrentTelemetry(frame);
-      setProgressOverride(undefined);
-    });
-    sim.onLapData?.((lap) => setLapData(lap));
-    sim.start();
-    setAdapter(sim);
-    return () => { sim.stop(); };
-  }, [dataSource, selectedTrack, lapData]);
+    // Detener adapter previo
+    adapter?.stop();
 
-  // Adapter para CSV y WS (no dependemos de lapData para inicializar)
-  useEffect(() => {
-    if (dataSource === 'demo') return;
-    const prev = adapter; prev?.stop();
-
-    if (dataSource === 'csv') {
+    if (dataSource === 'demo') {
+      if (!lapData) return; // requiere mock ya generado
+      const sim = new SimulatedAdapter(selectedTrack, lapData, 60);
+      sim.onStatus(setConnectionStatus);
+      sim.onFrame((frame) => {
+        setCurrentTelemetry(frame);
+        setProgressOverride(undefined);
+      });
+      sim.onLapData?.((lap) => setLapData(lap));
+      sim.start();
+      setAdapter(sim);
+    } else if (dataSource === 'csv') {
       const csv = new CsvFileAdapter({
         csvUrl: '/DataFiles/barber/R1_barber_telemetry_data.csv',
         mappingUrl: '/DataFiles/barber/mapping.json',
@@ -118,9 +112,8 @@ const App: React.FC = () => {
       });
       csv.start();
       setAdapter(csv);
-      return () => { csv.stop(); };
     } else {
-      const ws = new WebSocketAdapter(undefined, lapData || undefined);
+      const ws = new WebSocketAdapter(undefined, lapData || undefined); // endpoint mock: undefined usa modo simulado
       ws.onStatus(setConnectionStatus);
       ws.onFrame((frame) => {
         setCurrentTelemetry(frame);
@@ -129,9 +122,10 @@ const App: React.FC = () => {
       ws.onLapData?.((lap) => setLapData(lap));
       ws.start();
       setAdapter(ws);
-      return () => { ws.stop(); };
     }
-  }, [dataSource, selectedTrack]);
+
+    return () => { adapter?.stop(); };
+  }, [dataSource, selectedTrack, lapData]);
 
   const handleSelectTrack = (track: Track) => {
     setSelectedTrack(track);

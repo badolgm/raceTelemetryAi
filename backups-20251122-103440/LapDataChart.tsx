@@ -16,7 +16,7 @@ const LapDataChart: React.FC<LapDataChartProps> = ({ lapData }) => {
         <ResponsiveContainer width="100%" height="100%">
         <LineChart
             data={lapData.telemetry}
-            margin={{ top: 20, right: 24, left: 12, bottom: 56 }}
+            margin={{ top: 10, right: 20, left: 10, bottom: 48 }}
         >
             <CartesianGrid strokeDasharray="3 3" stroke="#4a5568" />
             <XAxis 
@@ -25,15 +25,12 @@ const LapDataChart: React.FC<LapDataChartProps> = ({ lapData }) => {
                 stroke="#a0aec0"
                 tick={{ fill: '#a0aec0', fontSize: 12 }}
                 tickMargin={8}
-                tickFormatter={(v: number) => `${Math.round(Number(v))}`}
             />
             <YAxis 
                 yAxisId="left" 
                 label={{ value: t('units.speed_kmh'), angle: -90, position: 'insideLeft', fill: '#22d3ee' }}
                 stroke="#22d3ee"
                 tick={{ fill: '#22d3ee', fontSize: 12 }}
-                tickMargin={6}
-                tickFormatter={(v: number) => `${Number.isFinite(v) ? Number(v).toFixed(0) : v}`}
                 domain={["dataMin - 10", "dataMax + 10"]}
             />
             <YAxis 
@@ -42,18 +39,10 @@ const LapDataChart: React.FC<LapDataChartProps> = ({ lapData }) => {
                 label={{ value: t('units.rpm'), angle: -90, position: 'insideRight', fill: '#f43f5e' }}
                 stroke="#f43f5e"
                 tick={{ fill: '#f43f5e', fontSize: 12 }}
-                tickMargin={6}
-                allowDecimals={false}
-                tickFormatter={(v: number) => `${Math.round(Number(v))}`}
             />
             <Tooltip 
                 contentStyle={{ backgroundColor: '#2d3748', border: '1px solid #4a5568', color: '#e2e8f0' }}
                 labelStyle={{ color: '#cbd5e0' }}
-                formatter={(value: any, name: any) => {
-                  const v = typeof value === 'number' ? Number(value).toFixed(2) : value;
-                  return [v, name];
-                }}
-                labelFormatter={(label: any) => `${t('units.distance_m')}: ${Math.round(Number(label))}`}
             />
             <Legend wrapperStyle={{ color: '#e2e8f0' }} verticalAlign="top" align="right" />
             <Line yAxisId="left" type="monotone" dataKey="Speed" name={t('gauges.speed')} stroke="#22d3ee" dot={false} strokeWidth={2} />
