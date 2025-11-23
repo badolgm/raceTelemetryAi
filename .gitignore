@@ -36,3 +36,13 @@ Thumbs.db
 # Backups locales (no versionar)
 backups-*/
 backups-*/**
+
+# DataFiles (estáticos servidos por Vite)
+# Ignorar datasets pesados, permitir modelos y configuración
+public/DataFiles/**/*.csv
+public/DataFiles/**/*.zip
+public/DataFiles/**/*.parquet
+!public/DataFiles/models/
+!public/DataFiles/models/**
+!public/DataFiles/config/
+!public/DataFiles/config/**

@@ -204,17 +204,24 @@ Pasos:
 2. Arranca desarrollo: `npm run dev`
 3. Abre `http://localhost:5173/` en el navegador.
 
-Estructura de datos sugerida (ajústala a tus carpetas "Datos"):
+Estructura de datos sugerida (sirviendo estáticos desde `public/DataFiles/`):
 ```
-data/
-  barber-motorsports-park.zip
-  circuito-de-las-americas.zip
-  indianapolis.zip
-  road-america.zip
-  sebring.zip
-  sonoma.zip
-  Virginia International Raceway.zip
+public/DataFiles/
+  barber/
+    R1_barber_telemetry_data.csv
+    mapping.json
+  cota/
+    ...
+  models/
+    riskModel.json
+    trackModels.json
+  config/
+    calibration.json
+    trackPaths.json
 ```
+Notas:
+- Los CSV pesados se colocan localmente en `public/DataFiles/<pista>/` y no se versionan.
+- Los artefactos de modelos (`models/*.json`) y configuración (`config/*.json`) sí deben existir para que la app cargue normalizaciones y umbrales.
 
 ## Exportar a PDF
 - Opción 1: Extensión "Markdown PDF" de tu IDE.
